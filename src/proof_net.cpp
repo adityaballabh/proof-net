@@ -1,6 +1,7 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <vector>
 #include <unordered_map>
 #include <deque>
 #include <cstdlib>
@@ -132,6 +133,12 @@ void sendWrapper(string message, int sockfd){
     }
 }
 
+void generateReceipt(int node_id, string packet_id, int next_hop, int bytes){
+    string file_path = "receipts/" + to_string(node_id) + ".log";
+    ofstream out(file_path, ios::app);
+    out << packet_id << ' ' << next_hop << ' ' << bytes << '\n';
+}
+
 void processPacket(unordered_map<int, Node> &config, Packet packet, int node_id){
     deque<int> route = packet.route;
     if(route.empty() || route.front() != node_id)
@@ -153,6 +160,7 @@ void processPacket(unordered_map<int, Node> &config, Packet packet, int node_id)
     string message = convertPacket(packet);
     sendWrapper(message, sockfd);
     close(sockfd);
+    generateReceipt(node_id, packet.id, next_hop_id, packet.content.size());
 }
 
 // messages are always a single line
@@ -188,6 +196,18 @@ Packet parseMessage(string message){
         packet.route.push_back(node);
     }
     return packet;
+}
+
+vector<Packet> loadMessages(int node_id){
+    vector<Packet> packets;
+    string path = "messages/" + to_string(node_id) + ".txt", line;
+    ifstream fp(path);
+    while(getline(fp, line)){
+        cout << "sending: " << line << '\n';
+        Packet packet = parseMessage(line);
+        packets.push_back(packet);
+    }
+    return packets;
 }
 
 void processConnections(unordered_map<int, Node> &config, int sockfd, int node_id){
@@ -233,6 +253,14 @@ int main(int argc, char **argv){
             throw runtime_error("no config found at " + config_path);
 
         int sockfd = createServer(config[node_id].port);
+        if(!fork()){
+            sleep(5);
+            close(sockfd);
+            vector<Packet> packets = loadMessages(node_id);
+            for(Packet packet : packets)
+                processPacket(config, packet, node_id);
+            exit(0);
+        }
         processConnections(config, sockfd, node_id);
     } 
     catch(exception &e){
