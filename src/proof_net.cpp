@@ -172,7 +172,7 @@ void processPacket(unordered_map<int, Node> &config, Packet packet, int node_id)
 
     route.pop_front();
     if(route.empty()){
-        cout << "packet reached destination: " << packet.id << ' ' << packet.content << '\n';
+        cout << node_id << " packet reached destination: " << packet.id << ' ' << packet.content << '\n';
         return;
     }
     int next_hop_id = route.front();
@@ -229,7 +229,7 @@ vector<Packet> loadMessages(int node_id){
     string path = "messages/" + to_string(node_id) + ".txt", line;
     ifstream fp(path);
     while(getline(fp, line)){
-        cout << "sending: " << line << '\n';
+        cout << node_id << " sending: " << line << '\n';
         Packet packet = parseMessage(line);
         packets.push_back(packet);
     }
@@ -258,7 +258,7 @@ void processConnections(unordered_map<int, Node> &config, int sockfd, int node_i
         if(!fork()){
             close(sockfd);
             string message = getMessage(new_fd);
-            cout << "received: " << message << '\n';
+            cout << node_id << " received: " << message << '\n';
             
             if(message.substr(0, receipt_prefix.size()) == receipt_prefix)
                 storeReceipt(message, node_id);
@@ -275,17 +275,17 @@ void processConnections(unordered_map<int, Node> &config, int sockfd, int node_i
 
 int main(int argc, char **argv){
     try{
-        if(argc != 2)
-            throw runtime_error("usage: node <id>");
+        if(argc != 3)
+            throw runtime_error("usage: node <id> <config_path>");
         int node_id = stoi(argv[1]);
-        string config_path = "config.txt";
+        string config_path = argv[2];
         unordered_map<int, Node> config = getConfig(config_path);
         if(config.empty())
             throw runtime_error("no config found at " + config_path);
 
         int sockfd = createServer(config[node_id].port);
         if(!fork()){
-            sleep(5);
+            sleep(2);
             close(sockfd);
             vector<Packet> packets = loadMessages(node_id);
             for(Packet packet : packets)
