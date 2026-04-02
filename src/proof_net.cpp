@@ -1,6 +1,7 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <vector>
 #include <unordered_map>
 #include <deque>
 #include <cstdlib>
@@ -23,9 +24,16 @@ struct Node{
 struct Packet{
     string id, content;
     deque<int> route;
+    int prev_node;
+};
+
+struct Receipt{
+    string packet_id;
+    int generator, bytes;
 };
 
 const int BACKLOG = 8, MAX_LEN = 1024;
+const string receipt_prefix = "receipt ";
 
 unordered_map<int, Node> getConfig(string config_path){
     ifstream fp_config(config_path);
@@ -112,7 +120,7 @@ int createConnection(string ip, int port){
 
 string convertPacket(Packet packet){
     deque<int> route = packet.route;
-    string msg = packet.id + ' ' + to_string(route[0]);
+    string msg = packet.id + ' ' + to_string(packet.prev_node) + ' ' + to_string(route[0]);
     int hops = route.size();
     for(int i = 1; i < hops; i++)
         msg += ',' + to_string(packet.route[i]);
@@ -132,14 +140,39 @@ void sendWrapper(string message, int sockfd){
     }
 }
 
+string convertReceipt(Receipt receipt){
+    return receipt_prefix + receipt.packet_id + ' ' + to_string(receipt.generator) + ' ' + to_string(receipt.bytes) + '\n';
+}
+
+void storeReceipt(string receipt, int node_id){
+    stringstream ss(receipt);
+    string pref, packet_id;
+    int generator, bytes;
+    ss >> pref >> packet_id >> generator >> bytes;
+
+    string file_path = "receipts/" + to_string(node_id) + '/' + packet_id + ".txt";
+    ofstream out(file_path);
+    out << packet_id << ' ' << generator << ' ' << bytes << '\n';
+}
+
 void processPacket(unordered_map<int, Node> &config, Packet packet, int node_id){
     deque<int> route = packet.route;
     if(route.empty() || route.front() != node_id)
         throw runtime_error("incorrectly routed packet");
+    
+    if(packet.prev_node != -1){
+        Node prev_hop = config[packet.prev_node];
+        int sockfd = createConnection(prev_hop.ip, prev_hop.port);
+
+        Receipt receipt{packet.id, node_id, (int) packet.content.size()};
+        string receipt_str = convertReceipt(receipt);
+        sendWrapper(receipt_str, sockfd);
+        close(sockfd);
+    }
 
     route.pop_front();
     if(route.empty()){
-        cout << "packet reached destination: " << packet.id << ' ' << packet.content << '\n';
+        cout << node_id << " packet reached destination: " << packet.id << ' ' << packet.content << '\n';
         return;
     }
     int next_hop_id = route.front();
@@ -150,6 +183,7 @@ void processPacket(unordered_map<int, Node> &config, Packet packet, int node_id)
     int sockfd = createConnection(next_hop.ip, next_hop.port);
     
     packet.route = route;
+    packet.prev_node = node_id;
     string message = convertPacket(packet);
     sendWrapper(message, sockfd);
     close(sockfd);
@@ -176,7 +210,7 @@ Packet parseMessage(string message){
     stringstream ss_msg(message);
     Packet packet;
     string route, tok, content;
-    ss_msg >> packet.id >> route;
+    ss_msg >> packet.id >> packet.prev_node >> route;
     getline(ss_msg, content);
     if(content.empty())
         throw runtime_error("no packet content found");
@@ -188,6 +222,18 @@ Packet parseMessage(string message){
         packet.route.push_back(node);
     }
     return packet;
+}
+
+vector<Packet> loadMessages(int node_id){
+    vector<Packet> packets;
+    string path = "messages/" + to_string(node_id) + ".txt", line;
+    ifstream fp(path);
+    while(getline(fp, line)){
+        cout << node_id << " sending: " << line << '\n';
+        Packet packet = parseMessage(line);
+        packets.push_back(packet);
+    }
+    return packets;
 }
 
 void processConnections(unordered_map<int, Node> &config, int sockfd, int node_id){
@@ -212,9 +258,14 @@ void processConnections(unordered_map<int, Node> &config, int sockfd, int node_i
         if(!fork()){
             close(sockfd);
             string message = getMessage(new_fd);
-            cout << "received: " << message << '\n';
-            Packet packet = parseMessage(message);
-            processPacket(config, packet, node_id);
+            cout << node_id << " received: " << message << '\n';
+            
+            if(message.substr(0, receipt_prefix.size()) == receipt_prefix)
+                storeReceipt(message, node_id);
+            else{
+                Packet packet = parseMessage(message);
+                processPacket(config, packet, node_id);
+            }
             close(new_fd);
             exit(0);
         }
@@ -233,6 +284,14 @@ int main(int argc, char **argv){
             throw runtime_error("no config found at " + config_path);
 
         int sockfd = createServer(config[node_id].port);
+        if(!fork()){
+            sleep(2);
+            close(sockfd);
+            vector<Packet> packets = loadMessages(node_id);
+            for(Packet packet : packets)
+                processPacket(config, packet, node_id);
+            exit(0);
+        }
         processConnections(config, sockfd, node_id);
     } 
     catch(exception &e){
