@@ -24,9 +24,16 @@ struct Node{
 struct Packet{
     string id, content;
     deque<int> route;
+    int prev_node;
+};
+
+struct Receipt{
+    string packet_id;
+    int generator, bytes;
 };
 
 const int BACKLOG = 8, MAX_LEN = 1024;
+const string receipt_prefix = "receipt ";
 
 unordered_map<int, Node> getConfig(string config_path){
     ifstream fp_config(config_path);
@@ -113,7 +120,7 @@ int createConnection(string ip, int port){
 
 string convertPacket(Packet packet){
     deque<int> route = packet.route;
-    string msg = packet.id + ' ' + to_string(route[0]);
+    string msg = packet.id + ' ' + to_string(packet.prev_node) + ' ' + to_string(route[0]);
     int hops = route.size();
     for(int i = 1; i < hops; i++)
         msg += ',' + to_string(packet.route[i]);
@@ -133,16 +140,35 @@ void sendWrapper(string message, int sockfd){
     }
 }
 
-void generateReceipt(int node_id, string packet_id, int next_hop, int bytes){
-    string file_path = "receipts/" + to_string(node_id) + ".log";
-    ofstream out(file_path, ios::app);
-    out << packet_id << ' ' << next_hop << ' ' << bytes << '\n';
+string convertReceipt(Receipt receipt){
+    return receipt_prefix + receipt.packet_id + ' ' + to_string(receipt.generator) + ' ' + to_string(receipt.bytes) + '\n';
+}
+
+void storeReceipt(string receipt, int node_id){
+    stringstream ss(receipt);
+    string pref, packet_id;
+    int generator, bytes;
+    ss >> pref >> packet_id >> generator >> bytes;
+
+    string file_path = "receipts/" + to_string(node_id) + '/' + packet_id + ".txt";
+    ofstream out(file_path);
+    out << packet_id << ' ' << generator << ' ' << bytes << '\n';
 }
 
 void processPacket(unordered_map<int, Node> &config, Packet packet, int node_id){
     deque<int> route = packet.route;
     if(route.empty() || route.front() != node_id)
         throw runtime_error("incorrectly routed packet");
+    
+    if(packet.prev_node != -1){
+        Node prev_hop = config[packet.prev_node];
+        int sockfd = createConnection(prev_hop.ip, prev_hop.port);
+
+        Receipt receipt{packet.id, node_id, (int) packet.content.size()};
+        string receipt_str = convertReceipt(receipt);
+        sendWrapper(receipt_str, sockfd);
+        close(sockfd);
+    }
 
     route.pop_front();
     if(route.empty()){
@@ -157,10 +183,10 @@ void processPacket(unordered_map<int, Node> &config, Packet packet, int node_id)
     int sockfd = createConnection(next_hop.ip, next_hop.port);
     
     packet.route = route;
+    packet.prev_node = node_id;
     string message = convertPacket(packet);
     sendWrapper(message, sockfd);
     close(sockfd);
-    generateReceipt(node_id, packet.id, next_hop_id, packet.content.size());
 }
 
 // messages are always a single line
@@ -184,7 +210,7 @@ Packet parseMessage(string message){
     stringstream ss_msg(message);
     Packet packet;
     string route, tok, content;
-    ss_msg >> packet.id >> route;
+    ss_msg >> packet.id >> packet.prev_node >> route;
     getline(ss_msg, content);
     if(content.empty())
         throw runtime_error("no packet content found");
@@ -233,8 +259,13 @@ void processConnections(unordered_map<int, Node> &config, int sockfd, int node_i
             close(sockfd);
             string message = getMessage(new_fd);
             cout << "received: " << message << '\n';
-            Packet packet = parseMessage(message);
-            processPacket(config, packet, node_id);
+            
+            if(message.substr(0, receipt_prefix.size()) == receipt_prefix)
+                storeReceipt(message, node_id);
+            else{
+                Packet packet = parseMessage(message);
+                processPacket(config, packet, node_id);
+            }
             close(new_fd);
             exit(0);
         }
@@ -244,10 +275,10 @@ void processConnections(unordered_map<int, Node> &config, int sockfd, int node_i
 
 int main(int argc, char **argv){
     try{
-        if(argc != 3)
-            throw runtime_error("usage: node <id> <config_path>");
+        if(argc != 2)
+            throw runtime_error("usage: node <id>");
         int node_id = stoi(argv[1]);
-        string config_path = argv[2];
+        string config_path = "config.txt";
         unordered_map<int, Node> config = getConfig(config_path);
         if(config.empty())
             throw runtime_error("no config found at " + config_path);
