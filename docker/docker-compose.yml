@@ -1,0 +1,15 @@
+services:
+  node0: &node
+    image: proof-net
+    command: ["/node", "0", "config.txt"]
+    volumes:
+     - ../receipts:/app/receipts
+  node1:
+    <<: *node
+    command: ["/node", "1", "config.txt"]
+  node2:
+    <<: *node
+    command: ["/node", "2", "config.txt"]
+  node3:
+    <<: *node
+    command: ["/node", "3", "config.txt"]
