@@ -150,7 +150,7 @@ void storeReceipt(string receipt, int node_id){
     int generator, bytes;
     ss >> pref >> packet_id >> generator >> bytes;
 
-    string file_path = "receipts/" + to_string(node_id) + '/' + packet_id + ".txt";
+    string file_path = "receipts/" + packet_id + ".txt";
     ofstream out(file_path);
     out << packet_id << ' ' << generator << ' ' << bytes << '\n';
 }

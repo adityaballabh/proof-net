@@ -1,15 +1,25 @@
 services:
-  node0: &node
+  node0:
     image: proof-net
     command: ["/node", "0", "config.txt"]
     volumes:
-     - ../receipts:/app/receipts
+      - ../receipts/0:/app/receipts
+      - ../keys/0:/app/keys
   node1:
-    <<: *node
+    image: proof-net
     command: ["/node", "1", "config.txt"]
+    volumes:
+      - ../receipts/1:/app/receipts
+      - ../keys/1:/app/keys
   node2:
-    <<: *node
+    image: proof-net
     command: ["/node", "2", "config.txt"]
+    volumes:
+      - ../receipts/2:/app/receipts
+      - ../keys/2:/app/keys
   node3:
-    <<: *node
+    image: proof-net
     command: ["/node", "3", "config.txt"]
+    volumes:
+      - ../receipts/3:/app/receipts
+      - ../keys/3:/app/keys
