@@ -1,11 +1,13 @@
 #!/bin/bash
 
 rm -rf receipts keys
+mkdir -p keys/pvt keys/pub
+
+make gen_key
 
 for i in {0..3}; do
-    key_dir=keys/$i
-    mkdir -p receipts/$i $key_dir
-    openssl genpkey -algorithm Ed25519 -out $key_dir/pvt.pem -outpubkey $key_dir/pub.pem
+    mkdir -p receipts/$i
+    ./gen_key keys/pvt/$i.key keys/pub/$i.key
 done
 
 docker build -t proof-net -f docker/Dockerfile .

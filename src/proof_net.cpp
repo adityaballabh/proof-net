@@ -14,6 +14,7 @@
 #include <signal.h>
 #include <netdb.h>
 #include <cstring>
+#include <sodium.h>
 using namespace std;
 
 struct Node{
@@ -30,6 +31,10 @@ struct Packet{
 struct Receipt{
     string packet_id;
     int generator, bytes;
+};
+
+struct PubKey{
+    unsigned char val[crypto_sign_ed25519_PUBLICKEYBYTES];
 };
 
 const int BACKLOG = 8, MAX_LEN = 1024;
@@ -273,16 +278,39 @@ void processConnections(unordered_map<int, Node> &config, int sockfd, int node_i
     }
 }
 
+unordered_map<int, PubKey> loadPubKeys(int node_cnt){
+    unordered_map<int, PubKey> pub_keys;
+
+    for(int i = 0; i < node_cnt; i++){
+        string pub_path = "keys/pub/" + to_string(i) + ".key";
+        ifstream fp_pub(pub_path, ios::binary);
+        if(!fp_pub.is_open())
+            throw runtime_error("error while loading " + pub_path);
+
+        PubKey curr;
+        fp_pub.read((char*) curr.val, crypto_sign_ed25519_PUBLICKEYBYTES);
+        pub_keys[i] = curr;
+    }
+    return pub_keys;
+}
+
 int main(int argc, char **argv){
     try{
         if(argc != 3)
             throw runtime_error("usage: node <id> <config_path>");
+        if(sodium_init() == -1)
+            throw runtime_error("sodium_init failed");
+
         int node_id = stoi(argv[1]);
         string config_path = argv[2];
         unordered_map<int, Node> config = getConfig(config_path);
         if(config.empty())
             throw runtime_error("no config found at " + config_path);
-
+        
+        int node_cnt = config.size();
+        unsigned char pvt_key[crypto_sign_ed25519_SECRETKEYBYTES];  
+        unordered_map<int, PubKey> pub_keys = loadPubKeys(node_cnt);
+        
         int sockfd = createServer(config[node_id].port);
         if(!fork()){
             sleep(2);
@@ -293,7 +321,7 @@ int main(int argc, char **argv){
             exit(0);
         }
         processConnections(config, sockfd, node_id);
-    } 
+    }
     catch(exception &e){
         cerr << e.what() << '\n';
         return 1;
