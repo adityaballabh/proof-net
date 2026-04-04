@@ -1,0 +1,29 @@
+services:
+  node0:
+    image: proof-net
+    command: ["/node", "0", "config.txt"]
+    volumes:
+      - ../receipts/0:/app/receipts
+      - ../keys/pvt/0.key:/app/keys/pvt.key:ro
+      - ../keys/pub:/app/keys/pub:ro
+  node1:
+    image: proof-net
+    command: ["/node", "1", "config.txt"]
+    volumes:
+      - ../receipts/1:/app/receipts
+      - ../keys/pvt/1.key:/app/keys/pvt.key:ro
+      - ../keys/pub:/app/keys/pub:ro
+  node2:
+    image: proof-net
+    command: ["/node", "2", "config.txt"]
+    volumes:
+      - ../receipts/2:/app/receipts
+      - ../keys/pvt/2.key:/app/keys/pvt.key:ro
+      - ../keys/pub:/app/keys/pub:ro
+  node3:
+    image: proof-net
+    command: ["/node", "3", "config.txt"]
+    volumes:
+      - ../receipts/3:/app/receipts
+      - ../keys/pvt/3.key:/app/keys/pvt.key:ro
+      - ../keys/pub:/app/keys/pub:ro

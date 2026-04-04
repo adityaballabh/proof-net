@@ -1,18 +1,26 @@
-CPP = g++
-COMPILERFLAGS = -g -Wall -Wextra -Wno-sign-compare
+CXX = g++
+COMPILERFLAGS = -Wall -Wextra -Wno-sign-compare
+CPPFLAGS = -I/opt/homebrew/include
+LINKFLAGS = -L/opt/homebrew/lib
+LINKLIBS = -lsodium
 
 NODEOBJECTS = obj/proof_net.o
 
 .PHONY: all clean
 
-node: $(NODEOBJECTS) | obj
-	$(CPP) $(COMPILERFLAGS) $^ -o $@
+all: node gen_key
 
-clean :
-	$(RM) obj/*.o node
+node: $(NODEOBJECTS) | obj
+	$(CXX) $(COMPILERFLAGS) $^ -o $@ $(LINKFLAGS) $(LINKLIBS)
+
+gen_key: src/gen_key.cpp
+	$(CXX) $(COMPILERFLAGS) $(CPPFLAGS) $< -o $@ $(LINKFLAGS) $(LINKLIBS)
+
+clean:
+	$(RM) obj/*.o node gen_key
 
 obj/%.o: src/%.cpp | obj
-	$(CPP) $(COMPILERFLAGS) -c -o $@ $<
+	$(CXX) $(COMPILERFLAGS) $(CPPFLAGS)  -c -o $@ $<
 
 obj:
 	mkdir -p obj

@@ -14,6 +14,7 @@
 #include <signal.h>
 #include <netdb.h>
 #include <cstring>
+#include <sodium.h>
 using namespace std;
 
 struct Node{
@@ -24,12 +25,16 @@ struct Node{
 struct Packet{
     string id, content;
     deque<int> route;
-    int prev_node;
+    int prev_node, size;
 };
 
 struct Receipt{
-    string packet_id;
+    string packet_id, signature;
     int generator, bytes;
+};
+
+struct PubKey{
+    unsigned char val[crypto_sign_ed25519_PUBLICKEYBYTES];
 };
 
 const int BACKLOG = 8, MAX_LEN = 1024;
@@ -140,22 +145,51 @@ void sendWrapper(string message, int sockfd){
     }
 }
 
+string getPayload(Receipt receipt){
+    return receipt.packet_id + ' ' + to_string(receipt.generator) + ' ' + to_string(receipt.bytes);
+}
+
 string convertReceipt(Receipt receipt){
-    return receipt_prefix + receipt.packet_id + ' ' + to_string(receipt.generator) + ' ' + to_string(receipt.bytes) + '\n';
+    return receipt_prefix + ' ' + getPayload(receipt) + ' ' + receipt.signature  + '\n';
 }
 
-void storeReceipt(string receipt, int node_id){
-    stringstream ss(receipt);
-    string pref, packet_id;
-    int generator, bytes;
-    ss >> pref >> packet_id >> generator >> bytes;
+Receipt parseReceipt(string receipt_str){
+    stringstream ss(receipt_str);
+    string pref;
+    Receipt receipt;
+    ss >> pref >> receipt.packet_id >> receipt.generator >> receipt.bytes >> receipt.signature;
+    return receipt;
+}
 
-    string file_path = "receipts/" + to_string(node_id) + '/' + packet_id + ".txt";
+void storeReceipt(Receipt receipt){
+    string file_path = "receipts/" + receipt.packet_id + ".txt";
     ofstream out(file_path);
-    out << packet_id << ' ' << generator << ' ' << bytes << '\n';
+    out << getPayload(receipt) + ' ' + receipt.signature << '\n';
 }
 
-void processPacket(unordered_map<int, Node> &config, Packet packet, int node_id){
+void signReceipt(Receipt &receipt, unsigned char *pvt_key){
+    string payload = getPayload(receipt);
+    unsigned char signature[crypto_sign_BYTES];
+
+    int b64_len = sodium_base64_encoded_len(crypto_sign_BYTES, sodium_base64_VARIANT_ORIGINAL);
+    char b64_signature[b64_len];
+
+    crypto_sign_detached(signature, NULL, (unsigned char*) payload.c_str(), payload.size(), pvt_key);                                                                                                                                 
+    receipt.signature = sodium_bin2base64(b64_signature, sizeof(b64_signature), signature, crypto_sign_BYTES, sodium_base64_VARIANT_ORIGINAL);                             
+}
+
+bool isValidReceipt(Receipt receipt, PubKey pub_key){
+    string payload = getPayload(receipt);
+    unsigned char signature[crypto_sign_BYTES];
+
+    if(sodium_base642bin(signature, sizeof(signature), receipt.signature.c_str(), receipt.signature.size(), NULL, NULL, NULL, sodium_base64_VARIANT_ORIGINAL))
+        return false;
+
+    bool valid = !crypto_sign_verify_detached(signature, (unsigned char*) payload.c_str(), payload.size(), pub_key.val);
+    return valid;
+}
+
+void processPacket(unordered_map<int, Node> &config, unordered_map<int, PubKey> &pub_keys, unsigned char* pvt_key, Packet packet, int node_id){
     deque<int> route = packet.route;
     if(route.empty() || route.front() != node_id)
         throw runtime_error("incorrectly routed packet");
@@ -163,8 +197,8 @@ void processPacket(unordered_map<int, Node> &config, Packet packet, int node_id)
     if(packet.prev_node != -1){
         Node prev_hop = config[packet.prev_node];
         int sockfd = createConnection(prev_hop.ip, prev_hop.port);
-
-        Receipt receipt{packet.id, node_id, (int) packet.content.size()};
+        Receipt receipt{packet.id, "", node_id, packet.size};
+        signReceipt(receipt, pvt_key);
         string receipt_str = convertReceipt(receipt);
         sendWrapper(receipt_str, sockfd);
         close(sockfd);
@@ -221,6 +255,7 @@ Packet parseMessage(string message){
         int node = stoi(tok);
         packet.route.push_back(node);
     }
+    packet.size = message.size();
     return packet;
 }
 
@@ -236,7 +271,7 @@ vector<Packet> loadMessages(int node_id){
     return packets;
 }
 
-void processConnections(unordered_map<int, Node> &config, int sockfd, int node_id){
+void processConnections(unordered_map<int, Node> &config, unordered_map<int, PubKey> &pub_keys, unsigned char* pvt_key, int sockfd, int node_id){
     struct sigaction sa;
     sa.sa_handler = sigchld_handler;
     sigemptyset(&sa.sa_mask);
@@ -260,11 +295,14 @@ void processConnections(unordered_map<int, Node> &config, int sockfd, int node_i
             string message = getMessage(new_fd);
             cout << node_id << " received: " << message << '\n';
             
-            if(message.substr(0, receipt_prefix.size()) == receipt_prefix)
-                storeReceipt(message, node_id);
+            if(message.substr(0, receipt_prefix.size()) == receipt_prefix){
+                Receipt receipt = parseReceipt(message);
+                if(isValidReceipt(receipt, pub_keys[receipt.generator]))
+                    storeReceipt(receipt);
+            }
             else{
                 Packet packet = parseMessage(message);
-                processPacket(config, packet, node_id);
+                processPacket(config, pub_keys, pvt_key, packet, node_id);
             }
             close(new_fd);
             exit(0);
@@ -273,27 +311,57 @@ void processConnections(unordered_map<int, Node> &config, int sockfd, int node_i
     }
 }
 
+unordered_map<int, PubKey> getPubKeys(int node_cnt){
+    unordered_map<int, PubKey> pub_keys;
+
+    for(int i = 0; i < node_cnt; i++){
+        string path = "keys/pub/" + to_string(i) + ".key";
+        ifstream fp(path, ios::binary);
+        PubKey curr;
+        fp.read((char*) curr.val, crypto_sign_ed25519_PUBLICKEYBYTES);
+        pub_keys[i] = curr;
+    }
+    return pub_keys;
+}
+
+void loadPvtKey(unsigned char* pvt_key){
+    string path = "keys/pvt.key";
+    ifstream fp(path, ios::binary);
+    if(!fp.is_open())
+        throw runtime_error("unable to load private key");
+    fp.read((char*) pvt_key, crypto_sign_ed25519_SECRETKEYBYTES);
+}
+
 int main(int argc, char **argv){
     try{
         if(argc != 3)
             throw runtime_error("usage: node <id> <config_path>");
+        if(sodium_init() == -1)
+            throw runtime_error("sodium_init failed");
+
         int node_id = stoi(argv[1]);
         string config_path = argv[2];
         unordered_map<int, Node> config = getConfig(config_path);
         if(config.empty())
             throw runtime_error("no config found at " + config_path);
+        
+        int node_cnt = config.size();
+        unordered_map<int, PubKey> pub_keys = getPubKeys(node_cnt);
 
+        unsigned char pvt_key[crypto_sign_ed25519_SECRETKEYBYTES];
+        loadPvtKey(pvt_key);
+        
         int sockfd = createServer(config[node_id].port);
         if(!fork()){
             sleep(2);
             close(sockfd);
             vector<Packet> packets = loadMessages(node_id);
             for(Packet packet : packets)
-                processPacket(config, packet, node_id);
+                processPacket(config, pub_keys, pvt_key, packet, node_id);
             exit(0);
         }
-        processConnections(config, sockfd, node_id);
-    } 
+        processConnections(config, pub_keys, pvt_key, sockfd, node_id);
+    }
     catch(exception &e){
         cerr << e.what() << '\n';
         return 1;

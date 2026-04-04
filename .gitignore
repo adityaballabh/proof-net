@@ -1,3 +1,6 @@
 .DS_Store
+.vscode
 node
+gen_key
 *.o
+keys
