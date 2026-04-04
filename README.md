@@ -1,4 +1,12 @@
 ## ProofNet
-A decentralized anonymous network which achieves fairness while preserving privacy. Most existing decentralized anonymous networks either assume nodes will volunteer bandwidth (allowing free-riders) or try to provide incentives (which can be gamed).
+A decentralized anonymous network which uses zero-knowledge proofs to achieve fairness while preserving privacy.
 
-It uses a distributed hash table (DHT) with multi-hop routing and encrypted traffic to preserve anonymity. Nodes exchange cryptographic receipts while relaying traffic. The total bandwidth contributions for each node are validated through zero-knowledge proofs, enforcing fairness without exposing individual routes.
+## Progress
+- Basic source routing
+- Nodes load keys at startup
+- Next hop sends a signed receipt for bandwidth contributions
+- Nodes verify and store receipts
+
+## References
+- [Beej's Guide](https://beej.us/guide/bgnet/pdf/bgnet_usl_c_1.pdf)
+- [Libsodium Docs](https://libsodium.gitbook.io/doc)
