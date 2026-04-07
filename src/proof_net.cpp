@@ -260,7 +260,7 @@ void processPacket(unordered_map<int, Node> &config, unordered_map<int, PubKey> 
     close(sockfd);
 }
 
-// messages are always a single line
+// packets are always a single line
 string getPacket(int sockfd){
     string data;
     char buf[MAX_LEN];
