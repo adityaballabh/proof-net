@@ -21,7 +21,7 @@
 using namespace std;
 
 const int BACKLOG = 8, MAX_LEN = 4096;
-const string receipt_prefix = "receipt ";
+const string receipt_prefix = "receipt ", proof_prefix = "proof ";
 
 struct Node{
     int id, port;
@@ -37,15 +37,23 @@ struct PubKey{
     unsigned char signing[crypto_sign_ed25519_PUBLICKEYBYTES], encryption[crypto_box_PUBLICKEYBYTES];
 };
 
+enum class HostType{
+    Node, Acct
+};
+
+struct Packet{
+    string id, payload;
+};
+
 int createServer(int port);
-void sigchld_handler(int s);
 int createConnection(string ip, int port);
 void sendWrapper(string message, int sockfd);
-Receipt parseReceipt(string receipt_str);
-string convertReceipt(Receipt receipt);
 string getBase64Encoded(unsigned char* data, int len);
-string getReceiptPayload(Receipt receipt);
-bool isValidReceipt(Receipt receipt, PubKey pub_key);
 string getPacket(int sockfd);
 unordered_map<int, Node> getConfig(string config_path);
-unordered_map<int, PubKey> getPubKeys(int node_cnt);
+void processPacket(unordered_map<int, Node> &config, unordered_map<int, PubKey> &pub_keys, Packet packet, unsigned char* pvt_signing, unsigned char* pvt_encryption, 
+                   int node_id, int prev_node, HostType host_type);
+void processConnections(unordered_map<int, Node> &config, unordered_map<int, PubKey> &pub_keys, unsigned char* pvt_signing, unsigned char* pvt_encryption, 
+                        int sockfd, int node_id, HostType host_type);
+void init(unordered_map<int, Node> &config, unordered_map<int, PubKey> &pub_keys, unsigned char* pvt_signing, unsigned char* pvt_encryption, string nw_config_path);
+ 
