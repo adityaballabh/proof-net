@@ -2,20 +2,19 @@
 
 rm -rf receipts keys state
 mkdir -p keys/pvt keys/pub
+mkdir -p state
 
-make gen_key
+docker build -t proof-net -f docker/Dockerfile .
+GEN_KEY="docker run --rm -v $(pwd)/keys:/app/keys proof-net /gen_key"
 
 for i in {0..3}; do
     mkdir -p receipts/node$i
-    mkdir -p state/node$i
-    ./gen_key keys/pvt/node$i.key keys/pub/node$i.key
+    $GEN_KEY keys/pvt/node$i.key keys/pub/node$i.key
 done
 
 for i in {1000..1001}; do
     id=$((i - 1000))
-    ./gen_key keys/pvt/acct$id.key keys/pub/acct$id.key
-    mkdir -p state/acct$id
+    $GEN_KEY keys/pvt/acct$id.key keys/pub/acct$id.key
 done
 
-docker build -t proof-net -f docker/Dockerfile .
 docker compose -f docker/docker-compose.yml up

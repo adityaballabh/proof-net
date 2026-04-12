@@ -94,7 +94,7 @@ string getReceiptPayload(Receipt receipt){
 }
 
 string convertReceipt(Receipt receipt){
-    return receipt_prefix + ' ' + getReceiptPayload(receipt) + ' ' + receipt.signature  + '\n';
+    return RECEIPT_PREFIX + ' ' + getReceiptPayload(receipt) + ' ' + receipt.signature;
 }
 
 string getBase64Encoded(unsigned char* data, int len){
@@ -131,9 +131,10 @@ string getPacket(int sockfd){
     return data;
 }
 
-unordered_map<int, Node> getConfig(string config_path){
+template<typename T>
+T getConfig(string config_path){
     ifstream fp_config(config_path);
-    unordered_map<int, Node> config;
+    T config;
     string str;
     int id = 0;
     while(getline(fp_config, str)){
@@ -147,13 +148,8 @@ unordered_map<int, Node> getConfig(string config_path){
     return config;
 }
 
-PubKey getPubKey(HostType host_type, int id){
-    string path = "keys/pub/";
-    if(host_type == HostType::Node)
-        path += "node";
-    else    
-        path += "acct";
-    path += to_string(id) + ".key";
+PubKey getPubKey(HostType host_type, string ip){
+    string path = "keys/pub/" + ip + ".key";
     ifstream fp(path, ios::binary);
     PubKey curr;
     fp.read((char*) curr.signing, crypto_sign_ed25519_PUBLICKEYBYTES);
@@ -161,12 +157,12 @@ PubKey getPubKey(HostType host_type, int id){
     return curr;
 }
 
-unordered_map<int, PubKey> getPubKeys(unordered_map<int, Node> &nw_config, unordered_map<int, Node> &acct_config){
+unordered_map<int, PubKey> getPubKeys(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config){
     unordered_map<int, PubKey> pub_keys;
     for(auto [id, node] : nw_config)
-        pub_keys[id] = getPubKey(HostType::Node, id);
+        pub_keys[id] = getPubKey(HostType::Node, node.ip);
     for(auto [id, acct] : acct_config)
-        pub_keys[id] = getPubKey(HostType::Acct, id);
+        pub_keys[id] = getPubKey(HostType::Acct, acct.ip);
 
     return pub_keys;
 }
@@ -245,7 +241,7 @@ NodeState getNodeState(int node){
     string path = "state/" + to_string(node) + ".txt";
     ifstream in(path);
 
-    NodeState node_state;
+    NodeState node_state{};
     in >> node_state.allowed >> node_state.forwarded >> node_state.used;
     string id;
     while(in >> id)
@@ -261,42 +257,50 @@ void writeNodeState(NodeState node_state, int node){
         out << id << ' ';
 }
 
-void processPacket(unordered_map<int, Node> &config, unordered_map<int, PubKey> &pub_keys, Packet packet, unsigned char* pvt_signing, unsigned char* pvt_encryption, 
+void processPacket(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_keys, Packet packet, unsigned char* pvt_signing, unsigned char* pvt_encryption, 
                    int node_id, int prev_node, HostType host_type){
     int payload_size = packet.payload.size();
 
     if(prev_node != -1 && host_type == HostType::Node){ // prevents source from getting receipts since Acct is mandatory as first hop
-        Node prev_hop = config[prev_node];
+        Node prev_hop = nw_config[prev_node];
         int sockfd = createConnection(prev_hop.ip, prev_hop.port);
         Receipt receipt{packet.id, "", node_id, prev_node, payload_size};
         signReceipt(receipt, pvt_signing);
-        string receipt_str = convertReceipt(receipt);
+        string receipt_str = convertReceipt(receipt) + '\n';
         sendWrapper(receipt_str, sockfd);
         close(sockfd);
     }
 
     auto [next_hop_id, payload] = getOnionDecrypted(pub_keys[node_id], pvt_encryption, packet.payload);
     if(next_hop_id == INT_MIN){
-        cerr << node_id << " decryption failed for packet " + packet.id << '\n';
+        cout << "\ndecryption failed for packet " + packet.id << '\n';
         return;
     }
     else if(next_hop_id == -1){
-        cout << node_id << " packet reached destination: " + packet.id + ' ' + payload << '\n';
+        cout << "\npacket reached destination: " + packet.id + ' ' + payload << '\n';
         return;
     }
-    
-    if(!config.count(next_hop_id))
-        throw runtime_error("invalid next hop");
+    HostType next_hop_type = HostType::Node; 
+    if(!nw_config.count(next_hop_id) && !acct_config.count(next_hop_id))
+        throw runtime_error("invalid next hop");\
+    else if(acct_config.count(next_hop_id))
+        next_hop_type = HostType::Acct;
 
     if(host_type == HostType::Acct){
         NodeState prev_node_state = getNodeState(prev_node);
         if(!prev_node_state.allowed)
             return;
-        writeNodeState(NodeState{}, prev_node);
+        prev_node_state.allowed = false;
+        prev_node_state.used += payload_size;
+        writeNodeState(prev_node_state, prev_node);
     }
 
     string b64_payload = getBase64Encoded((unsigned char*) payload.data(), payload.size());
-    Node next_hop = config[next_hop_id];
+    Node next_hop;
+    if(next_hop_type == HostType::Node)
+        next_hop = nw_config[next_hop_id];
+    else
+        next_hop = acct_config[next_hop_id];
     int sockfd = createConnection(next_hop.ip, next_hop.port);
     
     string message = packet.id + ' ' + b64_payload + '\n';
@@ -308,9 +312,10 @@ Proof parseProof(string proof_str){
     stringstream proof_ss(proof_str);
     string pref, receipt_str;
     Proof proof;
-    proof_ss >> pref;
 
-    while(getline(proof_ss, receipt_str)){
+    while(getline(proof_ss, receipt_str, RECEIPT_DELIM)){
+        if(receipt_str.size() <= 1)
+            continue;
         Receipt receipt = parseReceipt(receipt_str);
         proof.receipts.push_back(receipt);
     }
@@ -329,13 +334,14 @@ bool canSend(Proof proof, unordered_map<int, PubKey> &pub_keys, int node){
     int max_used = node_state.used + MAX_LEN, thresh = node_state.forwarded * 2 + INIT_ALLOWED;
     if(max_used <= thresh){
         node_state.forwarded = 0;
+        node_state.used = 0;
         node_state.allowed = true;
     }
     writeNodeState(node_state, node);
     return node_state.allowed;
 }
 
-void processConnections(unordered_map<int, Node> &config, unordered_map<int, PubKey> &pub_keys, unsigned char* pvt_signing, unsigned char* pvt_encryption, 
+void processConnections(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_keys, unsigned char* pvt_signing, unsigned char* pvt_encryption, 
                         int sockfd, int node_id, HostType host_type){
     struct sigaction sa;
     sa.sa_handler = sigchld_handler;
@@ -358,27 +364,46 @@ void processConnections(unordered_map<int, Node> &config, unordered_map<int, Pub
         if(!fork()){
             close(sockfd);
             string packet_str = getPacket(new_fd);
-            cout << node_id << " received: " << packet_str << '\n';
-            int prev_node = getNodeID(config, their_addr);
+            int prev_node = getNodeID(nw_config, their_addr);
+            if(prev_node != -1)
+                cout << "\nreceived from " << prev_node;
+            else
+                cout << "\nsending";
+            cout << ": " << packet_str << '\n';
             
-            if(packet_str.substr(0, receipt_prefix.size()) == receipt_prefix && host_type == HostType::Node){
-                Receipt receipt = parseReceipt(packet_str);
-                if(isValidReceipt(receipt, pub_keys[receipt.generator]))
-                    storeReceipt(receipt);
+            if(packet_str.substr(0, RECEIPT_PREFIX.size()) == RECEIPT_PREFIX){
+                if(host_type == HostType::Node){
+                    Receipt receipt = parseReceipt(packet_str);
+                    if(isValidReceipt(receipt, pub_keys[receipt.generator]))
+                        storeReceipt(receipt);
+                }
             }
-            else if(packet_str.substr(0, proof_prefix.size()) == proof_prefix && host_type == HostType::Acct){
-                Proof proof = parseProof(packet_str);
-                string acct_resp = acct_resp_prefix;
+            else if(packet_str.substr(0, PROOF_PREFIX.size()) == PROOF_PREFIX && host_type == HostType::Acct){
+                string encrypted_proof_str = packet_str.substr(PROOF_PREFIX.size());
+                Proof proof;
+
+                try{
+                    auto [next_hop, proof_str] = getOnionDecrypted(pub_keys[node_id], pvt_encryption, encrypted_proof_str);
+                    proof = parseProof(proof_str);
+                    cout << "\nsuccessfully decrypted proof:\n";
+                    cout << "proof " << proof_str << '\n';
+                } 
+                catch(exception &e){
+                    cout << "\nfound no receipts or invalid proof. defaulting to initial forwarded value.\n";
+                }
+
+                string acct_resp = ACCT_RESP_PREFIX;
                 if(canSend(proof, pub_keys, prev_node))
-                    acct_resp += "ACK";
+                    acct_resp += ACK_STR;
                 else
-                    acct_resp += "NAK";
+                    acct_resp += NAK_STR;
+                acct_resp += '\n';
                 sendWrapper(acct_resp, new_fd);
             }
             else{
-                int prev_node = getNodeID(config, their_addr);
+                int prev_node = getNodeID(nw_config, their_addr);
                 Packet packet = parsePacket(packet_str);
-                processPacket(config, pub_keys, packet, pvt_signing, pvt_encryption, node_id, prev_node, host_type);
+                processPacket(nw_config, acct_config, pub_keys, packet, pvt_signing, pvt_encryption, node_id, prev_node, host_type);
             }
             close(new_fd);
             exit(0);
@@ -387,15 +412,15 @@ void processConnections(unordered_map<int, Node> &config, unordered_map<int, Pub
     }
 }
 
-void init(unordered_map<int, Node> &nw_config, unordered_map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_keys, 
+void init(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_keys, 
           unsigned char* pvt_signing, unsigned char* pvt_encryption, string nw_config_path, string acct_config_path, int argc){
     if(argc != 4)
         throw runtime_error("usage: node <id> <nw_config_path> <acct_config_path>");
     if(sodium_init() == -1)
             throw runtime_error("sodium_init failed");
 
-    nw_config = getConfig(nw_config_path);
-    acct_config = getConfig(acct_config_path);
+    nw_config = getConfig<unordered_map<int, Node>>(nw_config_path);
+    acct_config = getConfig<map<int, Node>>(acct_config_path);
     pub_keys = getPubKeys(nw_config, acct_config);
     loadPvtKey(pvt_signing, pvt_encryption);
 }

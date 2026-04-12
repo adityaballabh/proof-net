@@ -4,7 +4,6 @@ services:
     command: ["/node", "0", "nw_config.txt", "acct_config.txt"]
     volumes:
       - ../messages/node0:/app/messages
-      - ../state/node0:/app/state
       - ../receipts/node0:/app/receipts
       - ../keys/pvt/node0.key:/app/keys/pvt.key:ro
       - ../keys/pub:/app/keys/pub:ro
@@ -13,7 +12,6 @@ services:
     command: ["/node", "1", "nw_config.txt", "acct_config.txt"]
     volumes:
       - ../messages/node1:/app/messages
-      - ../state/node1:/app/state
       - ../receipts/node1:/app/receipts
       - ../keys/pvt/node1.key:/app/keys/pvt.key:ro
       - ../keys/pub:/app/keys/pub:ro
@@ -22,7 +20,6 @@ services:
     command: ["/node", "2", "nw_config.txt", "acct_config.txt"]
     volumes:
       - ../messages/node2:/app/messages
-      - ../state/node2:/app/state
       - ../receipts/node2:/app/receipts
       - ../keys/pvt/node2.key:/app/keys/pvt.key:ro
       - ../keys/pub:/app/keys/pub:ro
@@ -31,7 +28,6 @@ services:
     command: ["/node", "3", "nw_config.txt", "acct_config.txt"]
     volumes:
       - ../messages/node3:/app/messages
-      - ../state/node3:/app/state
       - ../receipts/node3:/app/receipts
       - ../keys/pvt/node3.key:/app/keys/pvt.key:ro
       - ../keys/pub:/app/keys/pub:ro

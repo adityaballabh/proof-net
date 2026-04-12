@@ -50,7 +50,7 @@ vector<Packet> loadMessages(unordered_map<int, PubKey> &pub_keys, int node_id){
     string path = "messages/init.txt", line;
     ifstream fp(path);
     while(getline(fp, line)){
-        cout << node_id << " sending: " << line << '\n';
+        cout << "\nsending message: " << line << '\n';
         Message message = parseMessage(line);
         Packet packet;
         packet.id = message.id;
@@ -60,11 +60,71 @@ vector<Packet> loadMessages(unordered_map<int, PubKey> &pub_keys, int node_id){
     return packets;
 }
 
+string convertProof(Proof proof){
+    string proof_str;
+    for(Receipt r : proof.receipts)
+        proof_str += convertReceipt(r) + RECEIPT_DELIM;
+    return proof_str;
+}
+
+Proof getProof(){
+    Proof proof;
+    for(auto file : filesystem::directory_iterator("receipts/")){
+        ifstream in(file.path());
+        string receipt_str;
+        getline(in, receipt_str);
+        Receipt r;
+        stringstream ss(receipt_str);
+        ss >> r.packet_id >> r.generator >> r.receiver >> r.bytes >> r.signature;
+        proof.receipts.push_back(r);
+        filesystem::remove(file.path());
+    }
+    return proof;
+}
+
+string sendProof(Node acct_node, unordered_map<int, PubKey> &pub_keys, Proof proof, int node_id){
+    string proof_str, packet_str, encrypted_proof_str;
+    deque<int> route = {acct_node.id};
+    int sockfd = createConnection(acct_node.ip, acct_node.port);
+
+    if(!proof.receipts.empty()){
+        proof_str = convertProof(proof);
+        encrypted_proof_str = getOnionEncrypted(pub_keys, route, proof_str);
+    }
+
+    packet_str = PROOF_PREFIX + encrypted_proof_str + '\n';
+    sendWrapper(packet_str, sockfd);
+    string acct_resp = getPacket(sockfd);
+    close(sockfd);
+    return acct_resp;
+}
+
+Node getAcctNode(map<int, Node> &acct_config, int node_id){
+    int n = acct_config.size(), ind = node_id % n;
+    auto it = acct_config.begin();
+    advance(it, ind);
+    return it->second;
+}
+
+bool canSendPacket(map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_keys, Proof proof, int node_id){
+    Node acct_node = getAcctNode(acct_config, node_id);
+    string acct_resp = sendProof(acct_node, pub_keys, proof, node_id);
+    return acct_resp == ACCT_RESP_PREFIX + ACK_STR;
+}
+
+void sendPacketWrapper(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_keys, Proof proof, Packet packet, 
+                       unsigned char* pvt_signing, unsigned char* pvt_encryption, int node_id, int prev_node, HostType host_type){
+    if(canSendPacket(acct_config, pub_keys, proof, node_id))
+        processPacket(nw_config, acct_config, pub_keys, packet, pvt_signing, pvt_encryption, node_id, -1, host_type);
+}
+
 int main(int argc, char **argv){
-    unordered_map<int, Node> nw_config, acct_config;
+    unordered_map<int, Node> nw_config;
+    map<int, Node> acct_config;
     unordered_map<int, PubKey> pub_keys;
     unsigned char pvt_signing[crypto_sign_ed25519_SECRETKEYBYTES], pvt_encryption[crypto_box_SECRETKEYBYTES];
     HostType host_type = HostType::Node;
+    cout << unitbuf;
 
     try{
         init(nw_config, acct_config, pub_keys, pvt_signing, pvt_encryption, argv[2], argv[3], argc);
@@ -74,11 +134,14 @@ int main(int argc, char **argv){
             sleep(2);
             close(sockfd);
             vector<Packet> packets = loadMessages(pub_keys, node_id);
-            for(Packet packet : packets)
-                processPacket(nw_config, pub_keys, packet, pvt_signing, pvt_encryption, node_id, -1, host_type);
+            for(Packet packet : packets){
+                sleep(2);
+                Proof proof = getProof();
+                sendPacketWrapper(nw_config, acct_config, pub_keys, proof, packet, pvt_signing, pvt_encryption, node_id, -1, host_type);
+            }
             exit(0);
         }
-        processConnections(nw_config, pub_keys, pvt_signing, pvt_encryption, sockfd, node_id, host_type);
+        processConnections(nw_config, acct_config, pub_keys, pvt_signing, pvt_encryption, sockfd, node_id, host_type);
     }
     catch(exception &e){
         cerr << e.what() << '\n';

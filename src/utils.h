@@ -8,7 +8,9 @@
 #include <vector>
 #include <unordered_set>
 #include <unordered_map>
+#include <map>
 #include <deque>
+#include <filesystem>
 #include <cstdlib>
 #include <cstdio>
 #include <sys/types.h>
@@ -22,7 +24,8 @@
 using namespace std;
 
 const int BACKLOG = 8, MAX_LEN = 4096, INIT_ALLOWED = MAX_LEN * 10;
-const string receipt_prefix = "receipt ", proof_prefix = "proof ", acct_resp_prefix = "acct_resp ";
+const string RECEIPT_PREFIX = "receipt ", PROOF_PREFIX = "proof ", ACCT_RESP_PREFIX = "acct_resp ", ACK_STR = "ACK", NAK_STR = "NAK";
+const char RECEIPT_DELIM = ';';
 
 struct Node{
     int id, port;
@@ -59,13 +62,14 @@ struct NodeState{
 int createServer(int port);
 int createConnection(string ip, int port);
 void sendWrapper(string message, int sockfd);
+string convertReceipt(Receipt receipt);
 string getBase64Encoded(unsigned char* data, int len);
 string getPacket(int sockfd);
 unordered_map<int, Node> getConfig(string config_path);
-void processPacket(unordered_map<int, Node> &config, unordered_map<int, PubKey> &pub_keys, Packet packet, unsigned char* pvt_signing, unsigned char* pvt_encryption, 
+void processPacket(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_keys, Packet packet, unsigned char* pvt_signing, unsigned char* pvt_encryption, 
                    int node_id, int prev_node, HostType host_type);
-void processConnections(unordered_map<int, Node> &config, unordered_map<int, PubKey> &pub_keys, unsigned char* pvt_signing, unsigned char* pvt_encryption, 
+void processConnections(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_keys, unsigned char* pvt_signing, unsigned char* pvt_encryption, 
                         int sockfd, int node_id, HostType host_type);
-void init(unordered_map<int, Node> &nw_config, unordered_map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_keys, 
+void init(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_keys, 
           unsigned char* pvt_signing, unsigned char* pvt_encryption, string nw_config_path, string acct_config_path, int argc);
  
