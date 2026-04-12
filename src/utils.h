@@ -6,6 +6,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <unordered_set>
 #include <unordered_map>
 #include <deque>
 #include <cstdlib>
@@ -20,8 +21,8 @@
 #include <netdb.h>
 using namespace std;
 
-const int BACKLOG = 8, MAX_LEN = 4096;
-const string receipt_prefix = "receipt ", proof_prefix = "proof ";
+const int BACKLOG = 8, MAX_LEN = 4096, INIT_ALLOWED = MAX_LEN * 10;
+const string receipt_prefix = "receipt ", proof_prefix = "proof ", acct_resp_prefix = "acct_resp ";
 
 struct Node{
     int id, port;
@@ -43,6 +44,16 @@ enum class HostType{
 
 struct Packet{
     string id, payload;
+};
+
+struct Proof{
+    vector<Receipt> receipts;
+};
+
+struct NodeState{
+    bool allowed;
+    int forwarded, used;
+    unordered_set<string> receipt_ids;
 };
 
 int createServer(int port);

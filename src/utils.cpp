@@ -232,12 +232,34 @@ void signReceipt(Receipt &receipt, unsigned char *pvt_key){
     receipt.signature = getBase64Encoded(signature, crypto_sign_BYTES);
 }
 
+NodeState getNodeState(int node){
+    string path = "state/" + to_string(node) + ".txt";
+    ifstream in(path);
+
+    NodeState node_state;
+    in >> node_state.allowed >> node_state.forwarded >> node_state.used;
+    string id;
+    while(in >> id)
+        node_state.receipt_ids.insert(id);
+    return node_state;
+}
+
+void writeNodeState(NodeState node_state, int node){
+    string path = "state/" + to_string(node) + ".txt";
+    ofstream out(path);
+    out << node_state.allowed << ' ' << node_state.forwarded << ' ' << node_state.used << ' ';
+    for(string id : node_state.receipt_ids)
+        out << id << ' ';
+}
+
 void processPacket(unordered_map<int, Node> &config, unordered_map<int, PubKey> &pub_keys, Packet packet, unsigned char* pvt_signing, unsigned char* pvt_encryption, 
                    int node_id, int prev_node, HostType host_type){
-    if(prev_node != -1){
+    int payload_size = packet.payload.size();
+
+    if(prev_node != -1 && host_type == HostType::Node){ // prevents source from getting receipts since Acct is mandatory as first hop
         Node prev_hop = config[prev_node];
         int sockfd = createConnection(prev_hop.ip, prev_hop.port);
-        Receipt receipt{packet.id, "", node_id, prev_node, (int) packet.payload.size()};
+        Receipt receipt{packet.id, "", node_id, prev_node, payload_size};
         signReceipt(receipt, pvt_signing);
         string receipt_str = convertReceipt(receipt);
         sendWrapper(receipt_str, sockfd);
@@ -257,8 +279,11 @@ void processPacket(unordered_map<int, Node> &config, unordered_map<int, PubKey> 
     if(!config.count(next_hop_id))
         throw runtime_error("invalid next hop");
 
-    if(host_type == HostType:: Acct){
-        
+    if(host_type == HostType::Acct){
+        NodeState prev_node_state = getNodeState(prev_node);
+        if(!prev_node_state.allowed)
+            return;
+        writeNodeState(NodeState{}, prev_node);
     }
 
     string b64_payload = getBase64Encoded((unsigned char*) payload.data(), payload.size());
@@ -268,6 +293,37 @@ void processPacket(unordered_map<int, Node> &config, unordered_map<int, PubKey> 
     string message = packet.id + ' ' + b64_payload + '\n';
     sendWrapper(message, sockfd);
     close(sockfd);
+}
+
+Proof parseProof(string proof_str){
+    stringstream proof_ss(proof_str);
+    string pref, receipt_str;
+    Proof proof;
+    proof_ss >> pref;
+
+    while(getline(proof_ss, receipt_str)){
+        Receipt receipt = parseReceipt(receipt_str);
+        proof.receipts.push_back(receipt);
+    }
+    return proof;
+}
+
+bool canSend(Proof proof, unordered_map<int, PubKey> &pub_keys, int node){
+    NodeState node_state = getNodeState(node);
+    for(Receipt r : proof.receipts){
+        if(node_state.receipt_ids.count(r.packet_id) || !isValidReceipt(r, pub_keys[r.generator]) || r.generator == node)
+            continue;
+        node_state.receipt_ids.insert(r.packet_id);
+        node_state.forwarded += r.bytes;
+    }
+
+    int max_used = node_state.used + MAX_LEN, thresh = node_state.forwarded * 2 + INIT_ALLOWED;
+    if(max_used <= thresh){
+        node_state.forwarded = 0;
+        node_state.allowed = true;
+    }
+    writeNodeState(node_state, node);
+    return node_state.allowed;
 }
 
 void processConnections(unordered_map<int, Node> &config, unordered_map<int, PubKey> &pub_keys, unsigned char* pvt_signing, unsigned char* pvt_encryption, 
@@ -294,6 +350,7 @@ void processConnections(unordered_map<int, Node> &config, unordered_map<int, Pub
             close(sockfd);
             string packet_str = getPacket(new_fd);
             cout << node_id << " received: " << packet_str << '\n';
+            int prev_node = getNodeID(config, their_addr);
             
             if(packet_str.substr(0, receipt_prefix.size()) == receipt_prefix && host_type == HostType::Node){
                 Receipt receipt = parseReceipt(packet_str);
@@ -301,7 +358,13 @@ void processConnections(unordered_map<int, Node> &config, unordered_map<int, Pub
                     storeReceipt(receipt);
             }
             else if(packet_str.substr(0, proof_prefix.size()) == proof_prefix && host_type == HostType::Acct){
-
+                Proof proof = parseProof(packet_str);
+                string acct_resp = acct_resp_prefix;
+                if(canSend(proof, pub_keys, prev_node))
+                    acct_resp += "ACK";
+                else
+                    acct_resp += "NAK";
+                sendWrapper(acct_resp, new_fd);
             }
             else{
                 int prev_node = getNodeID(config, their_addr);

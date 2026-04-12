@@ -27,3 +27,16 @@ services:
       - ../receipts/3:/app/receipts
       - ../keys/pvt/3.key:/app/keys/pvt.key:ro
       - ../keys/pub:/app/keys/pub:ro
+  acct0:
+    image: proof-net
+    command: ["/acct", "1000", "nw_config.txt", "acct_config.txt"]
+    volumes:
+      - ../keys/pvt/1000.key:/app/keys/pvt.key:ro
+      - ../keys/pub:/app/keys/pub:ro
+      - ../state/acct0:/app/state
+  acct1:
+    image: proof-net
+    command: ["/acct", "1001", "nw_config.txt", "acct_config.txt"]
+    volumes:
+      - ../keys/pvt/1001.key:/app/keys/pvt.key:ro
+      - ../state/acct1:/app/state
