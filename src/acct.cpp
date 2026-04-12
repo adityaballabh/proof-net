@@ -7,11 +7,7 @@ int main(int argc, char **argv){
     HostType host_type = HostType::Acct;
         
     try{
-        if(argc != 4)
-            throw runtime_error("usage: acct <id> <nw_config_path> <acct_config_path>");
-        
-        init(nw_config, pub_keys, pvt_signing, pvt_encryption, argv[2]);
-        acct_config = getConfig(argv[3]);
+        init(nw_config, acct_config, pub_keys, pvt_signing, pvt_encryption, argv[2], argv[3], argc);
         int node_id = stoi(argv[1]), sockfd = createServer(acct_config[node_id].port);
 
         processConnections(nw_config, pub_keys, pvt_signing, pvt_encryption, sockfd, node_id, host_type);

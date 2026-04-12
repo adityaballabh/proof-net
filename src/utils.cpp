@@ -147,17 +147,27 @@ unordered_map<int, Node> getConfig(string config_path){
     return config;
 }
 
-unordered_map<int, PubKey> getPubKeys(int node_cnt){
-    unordered_map<int, PubKey> pub_keys;
+PubKey getPubKey(HostType host_type, int id){
+    string path = "keys/pub/";
+    if(host_type == HostType::Node)
+        path += "node";
+    else    
+        path += "acct";
+    path += to_string(id) + ".key";
+    ifstream fp(path, ios::binary);
+    PubKey curr;
+    fp.read((char*) curr.signing, crypto_sign_ed25519_PUBLICKEYBYTES);
+    crypto_sign_ed25519_pk_to_curve25519(curr.encryption, curr.signing);
+    return curr;
+}
 
-    for(int i = 0; i < node_cnt; i++){
-        string path = "keys/pub/" + to_string(i) + ".key";
-        ifstream fp(path, ios::binary);
-        PubKey curr;
-        fp.read((char*) curr.signing, crypto_sign_ed25519_PUBLICKEYBYTES);
-        crypto_sign_ed25519_pk_to_curve25519(curr.encryption, curr.signing);
-        pub_keys[i] = curr;
-    }
+unordered_map<int, PubKey> getPubKeys(unordered_map<int, Node> &nw_config, unordered_map<int, Node> &acct_config){
+    unordered_map<int, PubKey> pub_keys;
+    for(auto [id, node] : nw_config)
+        pub_keys[id] = getPubKey(HostType::Node, id);
+    for(auto [id, acct] : acct_config)
+        pub_keys[id] = getPubKey(HostType::Acct, id);
+
     return pub_keys;
 }
 
@@ -169,7 +179,6 @@ void loadPvtKey(unsigned char* pvt_signing, unsigned char* pvt_encryption){
     fp.read((char*) pvt_signing, crypto_sign_ed25519_SECRETKEYBYTES);
     crypto_sign_ed25519_sk_to_curve25519(pvt_encryption, pvt_signing);
 }
-
 
 Packet parsePacket(string message){
     stringstream ss(message);
@@ -378,11 +387,15 @@ void processConnections(unordered_map<int, Node> &config, unordered_map<int, Pub
     }
 }
 
-void init(unordered_map<int, Node> &config, unordered_map<int, PubKey> &pub_keys, unsigned char* pvt_signing, unsigned char* pvt_encryption, string nw_config_path){
+void init(unordered_map<int, Node> &nw_config, unordered_map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_keys, 
+          unsigned char* pvt_signing, unsigned char* pvt_encryption, string nw_config_path, string acct_config_path, int argc){
+    if(argc != 4)
+        throw runtime_error("usage: node <id> <nw_config_path> <acct_config_path>");
     if(sodium_init() == -1)
             throw runtime_error("sodium_init failed");
-    config = getConfig(nw_config_path);
-    int node_cnt = config.size();
-    pub_keys = getPubKeys(node_cnt);
+
+    nw_config = getConfig(nw_config_path);
+    acct_config = getConfig(acct_config_path);
+    pub_keys = getPubKeys(nw_config, acct_config);
     loadPvtKey(pvt_signing, pvt_encryption);
 }

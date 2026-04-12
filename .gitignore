@@ -1,7 +1,7 @@
 .DS_Store
 .vscode
 node
-accounting
+acct
 gen_key
 *.o
 keys

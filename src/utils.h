@@ -66,5 +66,6 @@ void processPacket(unordered_map<int, Node> &config, unordered_map<int, PubKey> 
                    int node_id, int prev_node, HostType host_type);
 void processConnections(unordered_map<int, Node> &config, unordered_map<int, PubKey> &pub_keys, unsigned char* pvt_signing, unsigned char* pvt_encryption, 
                         int sockfd, int node_id, HostType host_type);
-void init(unordered_map<int, Node> &config, unordered_map<int, PubKey> &pub_keys, unsigned char* pvt_signing, unsigned char* pvt_encryption, string nw_config_path);
+void init(unordered_map<int, Node> &nw_config, unordered_map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_keys, 
+          unsigned char* pvt_signing, unsigned char* pvt_encryption, string nw_config_path, string acct_config_path, int argc);
  

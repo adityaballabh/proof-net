@@ -47,7 +47,7 @@ Message parseMessage(string message){
 
 vector<Packet> loadMessages(unordered_map<int, PubKey> &pub_keys, int node_id){
     vector<Packet> packets;
-    string path = "messages/" + to_string(node_id) + ".txt", line;
+    string path = "messages/init.txt", line;
     ifstream fp(path);
     while(getline(fp, line)){
         cout << node_id << " sending: " << line << '\n';
@@ -61,27 +61,24 @@ vector<Packet> loadMessages(unordered_map<int, PubKey> &pub_keys, int node_id){
 }
 
 int main(int argc, char **argv){
-    unordered_map<int, Node> config;
+    unordered_map<int, Node> nw_config, acct_config;
     unordered_map<int, PubKey> pub_keys;
     unsigned char pvt_signing[crypto_sign_ed25519_SECRETKEYBYTES], pvt_encryption[crypto_box_SECRETKEYBYTES];
     HostType host_type = HostType::Node;
-    
+
     try{
-        if(argc != 3)
-            throw runtime_error("usage: node <id> <nw_config_path>");
-        
-        init(config, pub_keys, pvt_signing, pvt_encryption, argv[2]);
-        int node_id = stoi(argv[1]), sockfd = createServer(config[node_id].port);
+        init(nw_config, acct_config, pub_keys, pvt_signing, pvt_encryption, argv[2], argv[3], argc);
+        int node_id = stoi(argv[1]), sockfd = createServer(nw_config[node_id].port);
 
         if(!fork()){
             sleep(2);
             close(sockfd);
             vector<Packet> packets = loadMessages(pub_keys, node_id);
             for(Packet packet : packets)
-                processPacket(config, pub_keys, packet, pvt_signing, pvt_encryption, node_id, -1, host_type);
+                processPacket(nw_config, pub_keys, packet, pvt_signing, pvt_encryption, node_id, -1, host_type);
             exit(0);
         }
-        processConnections(config, pub_keys, pvt_signing, pvt_encryption, sockfd, node_id, host_type);
+        processConnections(nw_config, pub_keys, pvt_signing, pvt_encryption, sockfd, node_id, host_type);
     }
     catch(exception &e){
         cerr << e.what() << '\n';
