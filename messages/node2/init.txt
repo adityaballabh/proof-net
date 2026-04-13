@@ -1,0 +1,2 @@
+2_21 2,1000,1 first message from node 2
+2_2310 2,1000,3,1,0 another message from 2
