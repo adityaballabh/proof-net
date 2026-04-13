@@ -23,8 +23,8 @@
 #include <netdb.h>
 using namespace std;
 
-const int BACKLOG = 8, MAX_LEN = 4096, INIT_ALLOWED = MAX_LEN * 10;
-const string RECEIPT_PREFIX = "receipt ", PROOF_PREFIX = "proof ", ACCT_RESP_PREFIX = "acct_resp ", ACK_STR = "ACK", NAK_STR = "NAK";
+const int BACKLOG = 8, MAX_LEN = 256, INIT_ALLOWED = MAX_LEN * 3, SALT_LEN = 16;
+const string RECEIPT_PREFIX = "receipt ", PROOF_PREFIX = "proof ", ACCT_RESP_PREFIX = "acct_resp ", ACK_STR = "ACK", NAK_STR = "NAK", NO_PROOF_SUB = "_";
 const char RECEIPT_DELIM = ';';
 
 struct Node{
@@ -47,6 +47,7 @@ enum class HostType{
 
 struct Packet{
     string id, payload;
+    vector<string> salts, commitments, signatures;
 };
 
 struct Proof{
@@ -66,8 +67,8 @@ string convertReceipt(Receipt receipt);
 string getBase64Encoded(unsigned char* data, int len);
 string getPacket(int sockfd);
 unordered_map<int, Node> getConfig(string config_path);
-void processPacket(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_keys, Packet packet, unsigned char* pvt_signing, unsigned char* pvt_encryption, 
-                   int node_id, int prev_node, HostType host_type);
+void processPacket(unordered_map<int, Node> &nw_config, unordered_map<int, PubKey> &pub_keys, Packet packet, unsigned char* pvt_signing, unsigned char* pvt_encryption, int node_id, 
+                   int prev_node);
 void processConnections(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_keys, unsigned char* pvt_signing, unsigned char* pvt_encryption, 
                         int sockfd, int node_id, HostType host_type);
 void init(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_keys, 
