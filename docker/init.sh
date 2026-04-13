@@ -17,4 +17,4 @@ for i in {1000..1001}; do
     $GEN_KEY keys/pvt/acct$id.key keys/pub/acct$id.key
 done
 
-docker compose -f docker/docker-compose.yml up
+docker compose -f docker/docker-compose.yml up 2>&1 | tee logs/out.log

@@ -3,6 +3,7 @@
 struct Message{
     string id, content;
     deque<int> route;
+    int delay;
 };
 
 string getEncrypted(unsigned char *pub_key, string message){
@@ -31,7 +32,7 @@ Message parseMessage(string message){
     stringstream ss_msg(message);
     Message msg;
     string route, tok, content;
-    ss_msg >> msg.id >> route;
+    ss_msg >> msg.id >> msg.delay >> route;
     getline(ss_msg, content);
     if(content.empty())
         throw runtime_error("no packet content found");
@@ -45,17 +46,18 @@ Message parseMessage(string message){
     return msg;
 }
 
-vector<Packet> loadMessages(unordered_map<int, PubKey> &pub_keys, int node_id){
+vector<Packet> loadMessages(unordered_map<int, PubKey> &pub_keys, vector<int> &delays, int node_id){
     vector<Packet> packets;
     string path = "messages/init.txt", line;
     ifstream fp(path);
     while(getline(fp, line)){
-        cout << "\nsending message: " << line << '\n';
         Message message = parseMessage(line);
         Packet packet;
         packet.id = message.id;
         packet.payload = getOnionEncrypted(pub_keys, message.route, message.content);
         packets.push_back(packet);
+        cout << "\ndelay: " << message.delay  << "s message: " << line << '\n';
+        delays.push_back(message.delay);
     }
     return packets;
 }
@@ -84,12 +86,11 @@ Proof getProof(){
 
 string sendProof(Node acct_node, unordered_map<int, PubKey> &pub_keys, Proof proof, int node_id){
     string proof_str, packet_str, encrypted_proof_str;
-    deque<int> route = {acct_node.id};
     int sockfd = createConnection(acct_node.ip, acct_node.port);
 
     if(!proof.receipts.empty()){
         proof_str = convertProof(proof);
-        encrypted_proof_str = getOnionEncrypted(pub_keys, route, proof_str);
+        encrypted_proof_str = getOnionEncrypted(pub_keys, {acct_node.id}, proof_str);
     }
 
     packet_str = PROOF_PREFIX + encrypted_proof_str + '\n';
@@ -114,8 +115,12 @@ bool canSendPacket(map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_
 
 void sendPacketWrapper(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_keys, Proof proof, Packet packet, 
                        unsigned char* pvt_signing, unsigned char* pvt_encryption, int node_id, int prev_node, HostType host_type){
-    if(canSendPacket(acct_config, pub_keys, proof, node_id))
+    if(canSendPacket(acct_config, pub_keys, proof, node_id)){
+        cout << "\nsending packet " << packet.id << '\n';
         processPacket(nw_config, acct_config, pub_keys, packet, pvt_signing, pvt_encryption, node_id, -1, host_type);
+    }
+    else
+        cout << "\nsend was denied for packet " << packet.id << '\n';
 }
 
 int main(int argc, char **argv){
@@ -133,9 +138,12 @@ int main(int argc, char **argv){
         if(!fork()){
             sleep(2);
             close(sockfd);
-            vector<Packet> packets = loadMessages(pub_keys, node_id);
-            for(Packet packet : packets){
-                sleep(2);
+            vector<int> delays;
+            vector<Packet> packets = loadMessages(pub_keys, delays, node_id);
+            int packet_cnt = packets.size();
+            for(int i = 0; i < packet_cnt; i++){
+                Packet packet = packets[i];
+                sleep(delays[i]);
                 Proof proof = getProof();
                 sendPacketWrapper(nw_config, acct_config, pub_keys, proof, packet, pvt_signing, pvt_encryption, node_id, -1, host_type);
             }

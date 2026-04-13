@@ -189,25 +189,33 @@ void storeReceipt(Receipt receipt){
     out << getReceiptPayload(receipt) + ' ' + receipt.signature << '\n';
 }
 
-int getNodeID(unordered_map<int, Node> &config, sockaddr_storage addr){
+int getNodeID(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config, sockaddr_storage addr){
     addrinfo hints;
     memset(&hints, 0, sizeof(hints));   
     hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_STREAM;
     
     in_addr_t ip_addr = ((sockaddr_in*) &addr)->sin_addr.s_addr;
-    for(auto [id, node] : config){
-        addrinfo *servinfo;
-        if(getaddrinfo(node.ip.c_str(), NULL, &hints, &servinfo) != 0)
-            continue;
-        sockaddr_in* curr = (sockaddr_in*) servinfo->ai_addr;
-        in_addr_t curr_addr = curr->sin_addr.s_addr;
-        freeaddrinfo(servinfo);
 
-        if(curr_addr == ip_addr)
-            return id;
-    }
-    return -1;
+    auto matchID = [hints, ip_addr](auto &config){
+        for(auto [id, node] : config){
+            addrinfo *servinfo;
+            if(getaddrinfo(node.ip.c_str(), NULL, &hints, &servinfo) != 0)
+                continue;
+            sockaddr_in* curr = (sockaddr_in*) servinfo->ai_addr;
+            in_addr_t curr_addr = curr->sin_addr.s_addr;
+            freeaddrinfo(servinfo);
+
+            if(curr_addr == ip_addr)
+                return id;
+        }
+        return -1;
+    };
+
+    int id = matchID(nw_config);
+    if(id == -1)
+        id = matchID(acct_config);
+    return id;
 }
 
 pair<int, string> getOnionDecrypted(PubKey &node_pub, unsigned char *pvt_encryption, string encoded){
@@ -261,7 +269,7 @@ void processPacket(unordered_map<int, Node> &nw_config, map<int, Node> &acct_con
                    int node_id, int prev_node, HostType host_type){
     int payload_size = packet.payload.size();
 
-    if(prev_node != -1 && host_type == HostType::Node){ // prevents source from getting receipts since Acct is mandatory as first hop
+    if(prev_node != -1 && nw_config.count(prev_node) && host_type == HostType::Node){ // prevents source from getting receipts since first hop is always Acct
         Node prev_hop = nw_config[prev_node];
         int sockfd = createConnection(prev_hop.ip, prev_hop.port);
         Receipt receipt{packet.id, "", node_id, prev_node, payload_size};
@@ -364,11 +372,10 @@ void processConnections(unordered_map<int, Node> &nw_config, map<int, Node> &acc
         if(!fork()){
             close(sockfd);
             string packet_str = getPacket(new_fd);
-            int prev_node = getNodeID(nw_config, their_addr);
+            int prev_node = getNodeID(nw_config, acct_config, their_addr);
+            cout << "\nreceived";
             if(prev_node != -1)
-                cout << "\nreceived from " << prev_node;
-            else
-                cout << "\nsending";
+                cout << " from " << prev_node;
             cout << ": " << packet_str << '\n';
             
             if(packet_str.substr(0, RECEIPT_PREFIX.size()) == RECEIPT_PREFIX){
@@ -395,13 +402,15 @@ void processConnections(unordered_map<int, Node> &nw_config, map<int, Node> &acc
                 string acct_resp = ACCT_RESP_PREFIX;
                 if(canSend(proof, pub_keys, prev_node))
                     acct_resp += ACK_STR;
-                else
+                else{
                     acct_resp += NAK_STR;
+                    cout << "\ndenied send for " << prev_node << '\n';
+                }
                 acct_resp += '\n';
                 sendWrapper(acct_resp, new_fd);
             }
             else{
-                int prev_node = getNodeID(nw_config, their_addr);
+                int prev_node = getNodeID(nw_config, acct_config, their_addr);
                 Packet packet = parsePacket(packet_str);
                 processPacket(nw_config, acct_config, pub_keys, packet, pvt_signing, pvt_encryption, node_id, prev_node, host_type);
             }
