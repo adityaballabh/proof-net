@@ -60,13 +60,20 @@ struct NodeState{
     unordered_set<string> receipt_ids;
 };
 
+struct Layer{
+    int next_hop;
+    string salt, signature, payload;
+};
+
 int createServer(int port);
 int createConnection(string ip, int port);
 void sendWrapper(string message, int sockfd);
 string convertReceipt(Receipt receipt);
 string getBase64Encoded(unsigned char* data, int len);
+string getBase64Decoded(string encoded);
 string getPacket(int sockfd);
 unordered_map<int, Node> getConfig(string config_path);
+string getHash(string salt, int hop);
 void processPacket(unordered_map<int, Node> &nw_config, unordered_map<int, PubKey> &pub_keys, Packet packet, unsigned char* pvt_signing, unsigned char* pvt_encryption, int node_id, 
                    int prev_node);
 void processConnections(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_keys, unsigned char* pvt_signing, unsigned char* pvt_encryption, 

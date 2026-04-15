@@ -230,21 +230,22 @@ int getNodeID(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config, 
     return id;
 }
 
-pair<int, string> getOnionDecrypted(PubKey &node_pub, unsigned char *pvt_encryption, string encoded){
-    string bin = getBase64Decoded(encoded), decoded, payload;
+Layer getOnionDecrypted(PubKey &node_pub, unsigned char *pvt_encryption, string encoded){
+    string bin = getBase64Decoded(encoded), decoded;
     if(bin.empty())
-        return {INT_MIN, ""};
+        return {INT_MIN};
     size_t bin_len = bin.size();
     decoded.resize(bin_len - crypto_box_SEALBYTES);
 
     if(crypto_box_seal_open((unsigned char*) decoded.data(), (unsigned char*) bin.data(), bin_len, node_pub.encryption, pvt_encryption))
-        return {INT_MIN, ""};
+        return {INT_MIN};
 
     int next_hop;
     memcpy(&next_hop, decoded.data(), 4);
     next_hop = ntohl(next_hop);
-    payload = decoded.substr(4);
-    return {next_hop, payload};
+    int signature_start = SALT_LEN + 4, payload_start = signature_start + crypto_sign_BYTES;
+    string salt = decoded.substr(4, SALT_LEN), signature = decoded.substr(signature_start, crypto_sign_BYTES), payload = decoded.substr(payload_start);
+    return {next_hop, salt, signature, payload};
 }
 
 void signReceipt(Receipt &receipt, unsigned char *pvt_key){
@@ -275,6 +276,12 @@ void writeNodeState(NodeState node_state, int node){
         out << id << ' ';
 }
 
+string getHash(string salt, int hop){
+    string hash_in = salt + to_string(hop), hash_out(crypto_hash_sha256_BYTES, 0);
+    crypto_hash_sha256((unsigned char*) hash_out.data(), (unsigned char*) hash_in.data(), hash_in.size());
+    return hash_out;
+}
+
 void processPacket(unordered_map<int, Node> &nw_config, unordered_map<int, PubKey> &pub_keys, Packet packet, unsigned char* pvt_signing, unsigned char* pvt_encryption, 
                    int node_id, int prev_node){
     int payload_size = packet.payload.size();
@@ -289,17 +296,31 @@ void processPacket(unordered_map<int, Node> &nw_config, unordered_map<int, PubKe
         close(sockfd);
     }
 
-    auto [next_hop_id, payload] = getOnionDecrypted(pub_keys[node_id], pvt_encryption, packet.payload);
+    Layer layer = getOnionDecrypted(pub_keys[node_id], pvt_encryption, packet.payload);
+    int next_hop_id = layer.next_hop;
     if(next_hop_id == INT_MIN){
         cout << "\ndecryption failed for packet " + packet.id << '\n';
         return;
     }
-    else if(next_hop_id == -1){
+
+    string msg = packet.id + getHash(layer.salt, node_id), payload = layer.payload;
+    bool is_valid = false;
+    // to-do: replace with separate shared acct_key for commitment signatures
+    for(auto [id, pub_key] : pub_keys)
+        if(!crypto_sign_verify_detached((unsigned char*) layer.signature.data(), (unsigned char*) msg.data(), msg.size(), pub_key.signing)){
+            is_valid = true;
+            break;
+        }
+
+    if(!is_valid){
+        cout << "\nsignature verification failed for packet " + packet.id << ". dropping packet\n";
+        return;
+    }
+    if(next_hop_id == -1){
         cout << "\npacket reached destination: " + packet.id + ' ' + payload << '\n';
         return;
     }
-
-    if(!nw_config.count(next_hop_id))
+    if(!nw_config.count(layer.next_hop))
         throw runtime_error("invalid next hop");
 
     string b64_payload = getBase64Encoded((unsigned char*) payload.data(), payload.size());
@@ -361,10 +382,10 @@ void handleProof(unordered_map<int, PubKey> &pub_keys, unsigned char* pvt_signin
 
     try{
         if(encrypted_proof_str != NO_PROOF_SUB){
-            auto [next_hop, proof_str] = getOnionDecrypted(pub_keys[node_id], pvt_encryption, encrypted_proof_str);
-            proof = parseProof(proof_str);
+            Layer layer = getOnionDecrypted(pub_keys[node_id], pvt_encryption, encrypted_proof_str);
+            proof = parseProof(layer.payload);
             cout << "\nsuccessfully decrypted proof:\n";
-            cout << "proof " << proof_str << '\n';
+            cout << "proof " << layer.payload << '\n';
         }
         else
             cout << "\nempty proof received\n";
