@@ -98,16 +98,16 @@ string convertReceipt(Receipt receipt){
 }
 
 string getBase64Encoded(unsigned char* data, int len){
-    int b64_len = sodium_base64_encoded_len(len, sodium_base64_VARIANT_ORIGINAL);
+    int b64_len = sodium_base64_encoded_len(len, sodium_base64_VARIANT_URLSAFE);
     char b64_encoded[b64_len];
-    return sodium_bin2base64(b64_encoded, b64_len, data, len, sodium_base64_VARIANT_ORIGINAL);                             
+    return sodium_bin2base64(b64_encoded, b64_len, data, len, sodium_base64_VARIANT_URLSAFE);                             
 }
 
 string getBase64Decoded(string encoded){
     string bin;
     bin.resize(encoded.size());
     size_t bin_len;
-    if(sodium_base642bin((unsigned char*) bin.data(), bin.size(), encoded.c_str(), encoded.size(), NULL, &bin_len, NULL, sodium_base64_VARIANT_ORIGINAL)){
+    if(sodium_base642bin((unsigned char*) bin.data(), bin.size(), encoded.c_str(), encoded.size(), NULL, &bin_len, NULL, sodium_base64_VARIANT_URLSAFE)){
         cout << "\nbase64 decoding failed for: " << encoded << '\n';
         return "";
     }
@@ -119,7 +119,7 @@ bool isValidReceipt(Receipt receipt, PubKey pub_key){
     string payload = getReceiptPayload(receipt);
     unsigned char signature[crypto_sign_BYTES];
 
-    if(sodium_base642bin(signature, sizeof(signature), receipt.signature.c_str(), receipt.signature.size(), NULL, NULL, NULL, sodium_base64_VARIANT_ORIGINAL))
+    if(sodium_base642bin(signature, sizeof(signature), receipt.signature.c_str(), receipt.signature.size(), NULL, NULL, NULL, sodium_base64_VARIANT_URLSAFE))
         return false;
 
     bool valid = !crypto_sign_verify_detached(signature, (unsigned char*) payload.c_str(), payload.size(), pub_key.signing);
@@ -194,13 +194,6 @@ void loadPvtKey(unsigned char* pvt_signing, unsigned char* pvt_encryption, HostT
     crypto_sign_ed25519_sk_to_curve25519(pvt_encryption, pvt_signing);
 }
 
-Packet parsePacket(string message){
-    stringstream ss(message);
-    Packet packet;
-    ss >> packet.id >> packet.payload;
-    return packet;
-}
-
 void storeReceipt(Receipt receipt){
     fs::path file_path = fs::path(RECEIPTS_DIR) / (receipt.packet_id + TXT);
     ofstream out(file_path);
@@ -238,26 +231,35 @@ int getNodeID(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config, 
 
 Layer getOnionDecrypted(PubKey &node_pub, unsigned char *pvt_encryption, string encoded, bool is_proof){
     string bin = getBase64Decoded(encoded), decoded;
-    if(bin.empty())
-        return {INT_MIN, "", "", ""};
+    Layer layer;
+    if(bin.empty()){
+        layer.next_hop = INT_MIN;
+        return layer;
+    }
     size_t bin_len = bin.size();
     decoded.resize(bin_len - crypto_box_SEALBYTES);
 
-    if(crypto_box_seal_open((unsigned char*) decoded.data(), (unsigned char*) bin.data(), bin_len, node_pub.encryption, pvt_encryption))
-        return {INT_MIN, "", "", ""};
-
-    int next_hop;
-    memcpy(&next_hop, decoded.data(), 4);
-    next_hop = ntohl(next_hop);
-    int signature_start = SALT_LEN + 4, payload_start = signature_start + crypto_sign_BYTES;
-
-    if(is_proof){
-        string payload = decoded.substr(4);
-        return {next_hop, "", "", payload};
+    if(crypto_box_seal_open((unsigned char*) decoded.data(), (unsigned char*) bin.data(), bin_len, node_pub.encryption, pvt_encryption)){
+        layer.next_hop = INT_MIN;
+        return layer;
     }
 
-    string salt = decoded.substr(4, SALT_LEN), signature = decoded.substr(signature_start, crypto_sign_BYTES), payload = decoded.substr(payload_start);
-    return {next_hop, salt, signature, payload};
+    int next_hop;
+    memcpy(&next_hop, decoded.data(), HOP_ID_LEN);
+    next_hop = ntohl(next_hop);
+    int id_start = HOP_ID_LEN, salt_start = id_start + PACKET_ID_B64_LEN, signature_start = salt_start + SALT_LEN, payload_start = signature_start + crypto_sign_BYTES;
+
+    layer.next_hop = next_hop;
+    if(is_proof){
+        layer.payload = decoded.substr(4);
+        return layer;
+    }
+
+    layer.id = decoded.substr(id_start, PACKET_ID_B64_LEN);
+    layer.salt = decoded.substr(salt_start, SALT_LEN);
+    layer.signature = decoded.substr(signature_start, crypto_sign_BYTES);
+    layer.payload = decoded.substr(payload_start);
+    return layer;
 }
 
 void signReceipt(Receipt &receipt, unsigned char *pvt_key){
@@ -297,30 +299,31 @@ string getHash(string salt, int hop){
 void processPacket(unordered_map<int, Node> &nw_config, unordered_map<int, PubKey> &pub_keys, Packet packet, unsigned char* pvt_signing, unsigned char* pvt_encryption, 
                    int node_id, int prev_node){
     int payload_size = packet.payload.size();
+    Layer layer = getOnionDecrypted(pub_keys[node_id], pvt_encryption, packet.payload, false);
+
+    int next_hop_id = layer.next_hop;
+    if(next_hop_id == INT_MIN){
+        cout << "\ndecryption failed for packet" << '\n';
+        return;
+    }
+    string packet_id = layer.id;
 
     if(prev_node != -1 && nw_config.count(prev_node)){
         Node prev_hop = nw_config[prev_node];
         int sockfd = createConnection(prev_hop.ip, prev_hop.port);
-        Receipt receipt{packet.id, "", node_id, prev_node, payload_size};
+        Receipt receipt{packet_id, "", node_id, prev_node, payload_size};
         signReceipt(receipt, pvt_signing);
         string receipt_str = convertReceipt(receipt) + '\n';
         sendWrapper(receipt_str, sockfd);
         close(sockfd);
     }
-
-    Layer layer = getOnionDecrypted(pub_keys[node_id], pvt_encryption, packet.payload, false);
-    int next_hop_id = layer.next_hop;
-    if(next_hop_id == INT_MIN){
-        cout << "\ndecryption failed for packet " + packet.id << '\n';
-        return;
-    }
-
-    string msg = packet.id + getHash(layer.salt, node_id), payload = layer.payload;
+    
+    string msg = packet_id + getHash(layer.salt, node_id), payload = layer.payload;
     auto acct_pub_key = pub_keys[ACCT_COMMON_ID];
     bool is_valid = !crypto_sign_verify_detached((unsigned char*) layer.signature.data(), (unsigned char*) msg.data(), msg.size(), acct_pub_key.signing);
 
     if(!is_valid){
-        cout << "\nsignature verification failed for packet " + packet.id << ". dropping packet\n";
+        cout << "\nsignature verification failed for packet " + packet_id << ". dropping packet\n";
         return;
     }
     unordered_set<string> prev_pkts;
@@ -330,15 +333,15 @@ void processPacket(unordered_map<int, Node> &nw_config, unordered_map<int, PubKe
     while(prev_pkts_in >> prev_pkt)
         prev_pkts.insert(prev_pkt);
 
-    if(prev_pkts.count(packet.id)){
-        cout << "\n duplicate packet id: " << packet.id << ". dropping packet\n";
+    if(prev_pkts.count(packet_id)){
+        cout << "\n duplicate packet id: " << packet_id << ". dropping packet\n";
         return;
     }
     ofstream prev_pkts_out(prev_pkts_path, ios::app);
-    prev_pkts_out << packet.id << '\n';
+    prev_pkts_out << packet_id << '\n';
 
     if(next_hop_id == -1){
-        cout << "\npacket reached destination: " + packet.id + ' ' + payload << '\n';
+        cout << "\npacket reached destination: " + packet_id + ' ' + payload << '\n';
         return;
     }
     else if(!nw_config.count(next_hop_id))
@@ -348,7 +351,7 @@ void processPacket(unordered_map<int, Node> &nw_config, unordered_map<int, PubKe
     Node next_hop = nw_config[next_hop_id];
     int sockfd = createConnection(next_hop.ip, next_hop.port);
     
-    string message = packet.id + ' ' + b64_payload + '\n';
+    string message = b64_payload + '\n';
     sendWrapper(message, sockfd);
     close(sockfd);
 }
@@ -393,10 +396,10 @@ void setNAK(string &acct_resp, int prev_node){
 void handleProof(unordered_map<int, PubKey> &pub_keys, unsigned char* pvt_signing, unsigned char* pvt_encryption, string packet_str, int new_fd, 
                  int node_id, int prev_node){
     stringstream ss(packet_str);
-    string pref, encrypted_proof_str, packet_id, commitment;
+    string pref, encrypted_proof_str, receipts_str, commitments_str, packet_id, commitment;
     vector<string> commitments;
     Proof proof;
-    ss >> pref >> encrypted_proof_str >> packet_id;
+    ss >> pref >> encrypted_proof_str;
 
     try{
         Layer layer = getOnionDecrypted(pub_keys[node_id], pvt_encryption, encrypted_proof_str, true);
@@ -406,7 +409,10 @@ void handleProof(unordered_map<int, PubKey> &pub_keys, unsigned char* pvt_signin
             throw runtime_error("missing proof delim");
 
         cout << "\nsuccesfully decrypted proof\n";
-        string receipts_str = payload.substr(0, delim), commitments_str = payload.substr(delim + 1);
+        int receipts_len =  delim - PACKET_ID_B64_LEN;
+        packet_id = payload.substr(0, PACKET_ID_B64_LEN);
+        receipts_str = payload.substr(PACKET_ID_B64_LEN, receipts_len);
+        commitments_str = payload.substr(delim + 1);
 
         if(!receipts_str.empty()){
             proof = parseProof(receipts_str);
@@ -485,7 +491,8 @@ void processConnections(unordered_map<int, Node> &nw_config, map<int, Node> &acc
                 handleProof(pub_keys, pvt_signing, pvt_encryption, packet_str, new_fd, node_id, prev_node);
             else{
                 int prev_node = getNodeID(nw_config, acct_config, their_addr);
-                Packet packet = parsePacket(packet_str);
+                Packet packet;
+                packet.payload = packet_str;
                 processPacket(nw_config, pub_keys, packet, pvt_signing, pvt_encryption, node_id, prev_node);
             }
             close(new_fd);

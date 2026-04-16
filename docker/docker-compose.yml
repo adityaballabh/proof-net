@@ -5,7 +5,7 @@ services:
     volumes:
       - ../messages/node0:/app/messages
       - ../receipts/node0:/app/receipts
-       - ../state/node0:/app/state
+      - ../state/node0:/app/state
       - ../keys/pvt/node0.key:/app/keys/pvt/pvt.key:ro
       - ../keys/pub:/app/keys/pub:ro
   node1:
