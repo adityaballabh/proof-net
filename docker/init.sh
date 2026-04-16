@@ -4,7 +4,7 @@ rm -rf receipts keys state
 mkdir -p keys/pvt keys/pub
 mkdir -p state
 
-docker build -t proof-net -f docker/Dockerfile .
+docker build -t proof-net -f docker/Dockerfile . 2>&1 | tee logs/build.log
 GEN_KEY="docker run --rm -v $(pwd)/keys:/app/keys proof-net /gen_key"
 
 for i in {0..3}; do

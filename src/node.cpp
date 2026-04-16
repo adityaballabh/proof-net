@@ -53,7 +53,7 @@ Message parseMessage(string message){
     return msg;
 }
 
-vector<pair<Message, Packet>> loadMessages(unordered_map<int, PubKey> &pub_keys, vector<int> &delays, int node_id){
+vector<pair<Message, Packet>> loadMessages(vector<int> &delays){
     vector<pair<Message, Packet>> msg_pkt_pairs;
     string path = "messages/init.txt", line, salt(SALT_LEN, 0);
     ifstream fp(path);
@@ -100,7 +100,7 @@ Proof getProof(){
     return proof;
 }
 
-string sendProofWithCommitments(Node acct_node, unordered_map<int, PubKey> &pub_keys, Proof proof, Packet packet, int node_id){
+string sendProofWithCommitments(unordered_map<int, PubKey> &pub_keys, Node acct_node, Proof proof, Packet packet){
     string proof_str, packet_str, encrypted_proof_str;
     int sockfd = createConnection(acct_node.ip, acct_node.port);
 
@@ -125,7 +125,7 @@ Node getAcctNode(map<int, Node> &acct_config, int node_id){
 
 bool canSendPacket(map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_keys, Proof proof, Packet &packet,  int node_id){
     Node acct_node = getAcctNode(acct_config, node_id);
-    string acct_resp = sendProofWithCommitments(acct_node, pub_keys, proof, packet, node_id);
+    string acct_resp = sendProofWithCommitments(pub_keys, acct_node, proof, packet);
     if (acct_resp == ACCT_RESP_PREFIX + NAK_STR)
         return false;
 
@@ -164,7 +164,7 @@ int main(int argc, char **argv){
             sleep(2);
             close(sockfd);
             vector<int> delays;
-            vector<pair<Message, Packet>> msg_pkt_pairs = loadMessages(pub_keys, delays, node_id);
+            vector<pair<Message, Packet>> msg_pkt_pairs = loadMessages(delays);
             int packet_cnt = msg_pkt_pairs.size();
             for(int i = 0; i < packet_cnt; i++){
                 auto [message, packet] = msg_pkt_pairs[i];

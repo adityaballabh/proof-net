@@ -148,7 +148,6 @@ T getConfig(string config_path){
     ifstream fp_config(config_path);
     T config;
     string str;
-    int id = 0;
     while(getline(fp_config, str)){
         stringstream ss(str);
         Node node;
@@ -240,12 +239,12 @@ int getNodeID(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config, 
 Layer getOnionDecrypted(PubKey &node_pub, unsigned char *pvt_encryption, string encoded, bool is_proof){
     string bin = getBase64Decoded(encoded), decoded;
     if(bin.empty())
-        return {INT_MIN};
+        return {INT_MIN, "", "", ""};
     size_t bin_len = bin.size();
     decoded.resize(bin_len - crypto_box_SEALBYTES);
 
     if(crypto_box_seal_open((unsigned char*) decoded.data(), (unsigned char*) bin.data(), bin_len, node_pub.encryption, pvt_encryption))
-        return {INT_MIN};
+        return {INT_MIN, "", "", ""};
 
     int next_hop;
     memcpy(&next_hop, decoded.data(), 4);
