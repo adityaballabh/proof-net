@@ -23,9 +23,10 @@
 #include <netdb.h>
 using namespace std;
 
-const int BACKLOG = 8, MAX_LEN = 256, INIT_ALLOWED = MAX_LEN * 3, SALT_LEN = 16;
-const string RECEIPT_PREFIX = "receipt ", PROOF_PREFIX = "proof ", ACCT_RESP_PREFIX = "acct_resp ", ACK_STR = "ACK", NAK_STR = "NAK", NO_PROOF_SUB = "_";
-const char RECEIPT_DELIM = ';';
+const int BACKLOG = 8, MAX_LEN = 256, INIT_ALLOWED = MAX_LEN * 3, SALT_LEN = 16, ACCT_COMMON_ID = -1;
+const string RECEIPT_PREFIX = "receipt ", PROOF_PREFIX = "proof ", ACCT_RESP_PREFIX = "acct_resp ", ACK_STR = "ACK", NAK_STR = "NAK", ACCT_COMMON = "acct_common",
+    KEYS_DIR = "keys", PUB = "pub", PVT = "pvt", KEY_SUFFIX = ".key", PREV_PKTS_PATH = "state/prev_ids.txt";
+const char RECEIPT_DELIM = ';', RECEIPT_COMMITMENT_DELIM = '|';
 
 struct Node{
     int id, port;
@@ -79,5 +80,5 @@ void processPacket(unordered_map<int, Node> &nw_config, unordered_map<int, PubKe
 void processConnections(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_keys, unsigned char* pvt_signing, unsigned char* pvt_encryption, 
                         int sockfd, int node_id, HostType host_type);
 void init(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_keys, 
-          unsigned char* pvt_signing, unsigned char* pvt_encryption, string nw_config_path, string acct_config_path, int argc);
+          unsigned char* pvt_signing, unsigned char* pvt_encryption, HostType host_type, string nw_config_path, string acct_config_path, int argc);
  

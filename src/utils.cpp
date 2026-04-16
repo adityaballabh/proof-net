@@ -160,8 +160,8 @@ T getConfig(string config_path){
     return config;
 }
 
-PubKey getPubKey(HostType host_type, string ip){
-    string path = "keys/pub/" + ip + ".key";
+PubKey getPubKey(string ip){
+    string path = KEYS_DIR + "/" + PUB + "/" + ip + KEY_SUFFIX;
     ifstream fp(path, ios::binary);
     PubKey curr;
     fp.read((char*) curr.signing, crypto_sign_ed25519_PUBLICKEYBYTES);
@@ -172,19 +172,26 @@ PubKey getPubKey(HostType host_type, string ip){
 unordered_map<int, PubKey> getPubKeys(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config){
     unordered_map<int, PubKey> pub_keys;
     for(auto [id, node] : nw_config)
-        pub_keys[id] = getPubKey(HostType::Node, node.ip);
-    for(auto [id, acct] : acct_config)
-        pub_keys[id] = getPubKey(HostType::Acct, acct.ip);
-
+        pub_keys[id] = getPubKey(node.ip);
+    pub_keys[ACCT_COMMON_ID] = getPubKey(ACCT_COMMON);
+    for(auto [id, node] : acct_config)
+        pub_keys[id] = pub_keys[ACCT_COMMON_ID];
     return pub_keys;
 }
 
-void loadPvtKey(unsigned char* pvt_signing, unsigned char* pvt_encryption){
-    string path = "keys/pvt.key";
+void loadPvtKey(unsigned char* pvt_signing, unsigned char* pvt_encryption, HostType host_type){
+    string path = KEYS_DIR + "/" + PVT + "/";
+    if(host_type == HostType::Node)
+        path += PVT;
+    else
+        path += ACCT_COMMON;
+    path += KEY_SUFFIX;
+
     ifstream fp(path, ios::binary);
     if(!fp.is_open())
         throw runtime_error("unable to load private key");
     fp.read((char*) pvt_signing, crypto_sign_ed25519_SECRETKEYBYTES);
+
     crypto_sign_ed25519_sk_to_curve25519(pvt_encryption, pvt_signing);
 }
 
@@ -230,7 +237,7 @@ int getNodeID(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config, 
     return id;
 }
 
-Layer getOnionDecrypted(PubKey &node_pub, unsigned char *pvt_encryption, string encoded){
+Layer getOnionDecrypted(PubKey &node_pub, unsigned char *pvt_encryption, string encoded, bool is_proof){
     string bin = getBase64Decoded(encoded), decoded;
     if(bin.empty())
         return {INT_MIN};
@@ -244,6 +251,12 @@ Layer getOnionDecrypted(PubKey &node_pub, unsigned char *pvt_encryption, string 
     memcpy(&next_hop, decoded.data(), 4);
     next_hop = ntohl(next_hop);
     int signature_start = SALT_LEN + 4, payload_start = signature_start + crypto_sign_BYTES;
+
+    if(is_proof){
+        string payload = decoded.substr(4);
+        return {next_hop, "", "", payload};
+    }
+
     string salt = decoded.substr(4, SALT_LEN), signature = decoded.substr(signature_start, crypto_sign_BYTES), payload = decoded.substr(payload_start);
     return {next_hop, salt, signature, payload};
 }
@@ -296,7 +309,7 @@ void processPacket(unordered_map<int, Node> &nw_config, unordered_map<int, PubKe
         close(sockfd);
     }
 
-    Layer layer = getOnionDecrypted(pub_keys[node_id], pvt_encryption, packet.payload);
+    Layer layer = getOnionDecrypted(pub_keys[node_id], pvt_encryption, packet.payload, false);
     int next_hop_id = layer.next_hop;
     if(next_hop_id == INT_MIN){
         cout << "\ndecryption failed for packet " + packet.id << '\n';
@@ -304,23 +317,31 @@ void processPacket(unordered_map<int, Node> &nw_config, unordered_map<int, PubKe
     }
 
     string msg = packet.id + getHash(layer.salt, node_id), payload = layer.payload;
-    bool is_valid = false;
-    // to-do: replace with separate shared acct_key for commitment signatures
-    for(auto [id, pub_key] : pub_keys)
-        if(!crypto_sign_verify_detached((unsigned char*) layer.signature.data(), (unsigned char*) msg.data(), msg.size(), pub_key.signing)){
-            is_valid = true;
-            break;
-        }
+    auto acct_pub_key = pub_keys[ACCT_COMMON_ID];
+    bool is_valid = !crypto_sign_verify_detached((unsigned char*) layer.signature.data(), (unsigned char*) msg.data(), msg.size(), acct_pub_key.signing);
 
     if(!is_valid){
         cout << "\nsignature verification failed for packet " + packet.id << ". dropping packet\n";
         return;
     }
+    unordered_set<string> prev_pkts;
+    string prev_pkt;
+    ifstream prev_pkts_in(PREV_PKTS_PATH);
+    while(prev_pkts_in >> prev_pkt)
+        prev_pkts.insert(prev_pkt);
+
+    if(prev_pkts.count(packet.id)){
+        cout << "\n duplicate packet id: " << packet.id << ". dropping packet\n";
+        return;
+    }
+    ofstream prev_pkts_out(PREV_PKTS_PATH, ios::app);
+    prev_pkts_out << packet.id << '\n';
+
     if(next_hop_id == -1){
         cout << "\npacket reached destination: " + packet.id + ' ' + payload << '\n';
         return;
     }
-    if(!nw_config.count(layer.next_hop))
+    else if(!nw_config.count(next_hop_id))
         throw runtime_error("invalid next hop");
 
     string b64_payload = getBase64Encoded((unsigned char*) payload.data(), payload.size());
@@ -375,23 +396,32 @@ void handleProof(unordered_map<int, PubKey> &pub_keys, unsigned char* pvt_signin
     string pref, encrypted_proof_str, packet_id, commitment;
     vector<string> commitments;
     Proof proof;
-
     ss >> pref >> encrypted_proof_str >> packet_id;
-    while(ss >> commitment)
-        commitments.push_back(commitment);
 
     try{
-        if(encrypted_proof_str != NO_PROOF_SUB){
-            Layer layer = getOnionDecrypted(pub_keys[node_id], pvt_encryption, encrypted_proof_str);
-            proof = parseProof(layer.payload);
-            cout << "\nsuccessfully decrypted proof:\n";
-            cout << "proof " << layer.payload << '\n';
+        Layer layer = getOnionDecrypted(pub_keys[node_id], pvt_encryption, encrypted_proof_str, true);
+        int delim = layer.payload.find(RECEIPT_COMMITMENT_DELIM);
+        if(delim == string::npos)
+            throw runtime_error("missing proof delim");
+
+        cout << "\nsuccesfully decrypted proof\n";
+        string receipts_str = layer.payload.substr(0, delim), commitments_str = layer.payload.substr(delim + 1);
+
+        if(!receipts_str.empty()){
+            proof = parseProof(receipts_str);
+            cout << "proof " << receipts_str << '\n';
         }
         else
-            cout << "\nempty proof received\n";
+            cout << "no receipts found in proof\n";
+
+        string commitment;
+        ss = stringstream(commitments_str);
+        while(ss >> commitment)
+            commitments.push_back(commitment);
+        
     } 
     catch(exception &e){
-        cout << "\nfound no receipts or invalid proof. defaulting to initial forwarded value.\n";
+        cout << "\nerror while decrypting proof:" << e.what() << "\ndefaulting to initial forwarded value.\n";
     }
 
     string acct_resp = ACCT_RESP_PREFIX;
@@ -465,8 +495,8 @@ void processConnections(unordered_map<int, Node> &nw_config, map<int, Node> &acc
     }
 }
 
-void init(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_keys, 
-          unsigned char* pvt_signing, unsigned char* pvt_encryption, string nw_config_path, string acct_config_path, int argc){
+void init(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_keys, unsigned char* pvt_signing, unsigned char* pvt_encryption, 
+          HostType host_type, string nw_config_path, string acct_config_path, int argc){
     if(argc != 4)
         throw runtime_error("usage: node <id> <nw_config_path> <acct_config_path>");
     if(sodium_init() == -1)
@@ -475,5 +505,5 @@ void init(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config, unor
     nw_config = getConfig<unordered_map<int, Node>>(nw_config_path);
     acct_config = getConfig<map<int, Node>>(acct_config_path);
     pub_keys = getPubKeys(nw_config, acct_config);
-    loadPvtKey(pvt_signing, pvt_encryption);
+    loadPvtKey(pvt_signing, pvt_encryption, host_type);
 }

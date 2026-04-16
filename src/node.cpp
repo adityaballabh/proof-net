@@ -104,18 +104,12 @@ string sendProofWithCommitments(Node acct_node, unordered_map<int, PubKey> &pub_
     string proof_str, packet_str, encrypted_proof_str;
     int sockfd = createConnection(acct_node.ip, acct_node.port);
 
-    if(!proof.receipts.empty()){
-        proof_str = convertProof(proof);
-        encrypted_proof_str = getOnionEncrypted(pub_keys, {acct_node.id}, {}, {}, proof_str);
-    }
-    if(encrypted_proof_str.empty())
-        encrypted_proof_str = NO_PROOF_SUB;
-
-    packet_str = PROOF_PREFIX + encrypted_proof_str + ' ' + packet.id;
+    proof_str = convertProof(proof) + RECEIPT_COMMITMENT_DELIM;
     for(string commitment: packet.commitments)
-        packet_str += ' ' + commitment;
-    packet_str += '\n';
+        proof_str += ' ' + commitment;
+    encrypted_proof_str = getOnionEncrypted(pub_keys, {acct_node.id}, {}, {}, proof_str);
 
+    packet_str = PROOF_PREFIX + encrypted_proof_str + ' ' + packet.id + '\n';
     sendWrapper(packet_str, sockfd);
     string acct_resp = getPacket(sockfd);
     close(sockfd);
@@ -163,7 +157,7 @@ int main(int argc, char **argv){
     cout << unitbuf;
 
     try{
-        init(nw_config, acct_config, pub_keys, pvt_signing, pvt_encryption, argv[2], argv[3], argc);
+        init(nw_config, acct_config, pub_keys, pvt_signing, pvt_encryption, host_type, argv[2], argv[3], argc);
         int node_id = stoi(argv[1]), sockfd = createServer(nw_config[node_id].port);
 
         if(!fork()){
