@@ -55,8 +55,9 @@ Message parseMessage(string message){
 
 vector<pair<Message, Packet>> loadMessages(vector<int> &delays){
     vector<pair<Message, Packet>> msg_pkt_pairs;
-    string path = "messages/init.txt", line, salt(SALT_LEN, 0);
-    ifstream fp(path);
+    string line, salt(SALT_LEN, 0);
+    fs::path messages_path = fs::path(MESSAGES_DIR) / (INIT + TXT);
+    ifstream fp(messages_path);
     while(getline(fp, line)){
         Message message = parseMessage(line);
         Packet packet;
@@ -87,7 +88,7 @@ string convertProof(Proof proof){
 
 Proof getProof(){
     Proof proof;
-    for(auto file : filesystem::directory_iterator("receipts/")){
+    for(auto file : filesystem::directory_iterator(RECEIPTS_DIR)){
         ifstream in(file.path());
         string receipt_str;
         getline(in, receipt_str);

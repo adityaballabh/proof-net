@@ -160,8 +160,8 @@ T getConfig(string config_path){
 }
 
 PubKey getPubKey(string ip){
-    string path = KEYS_DIR + "/" + PUB + "/" + ip + KEY_SUFFIX;
-    ifstream fp(path, ios::binary);
+    fs::path pub_path = fs::path(KEYS_DIR) / PUB / (ip + KEY_SUFFIX);
+    ifstream fp(pub_path, ios::binary);
     PubKey curr;
     fp.read((char*) curr.signing, crypto_sign_ed25519_PUBLICKEYBYTES);
     crypto_sign_ed25519_pk_to_curve25519(curr.encryption, curr.signing);
@@ -179,14 +179,14 @@ unordered_map<int, PubKey> getPubKeys(unordered_map<int, Node> &nw_config, map<i
 }
 
 void loadPvtKey(unsigned char* pvt_signing, unsigned char* pvt_encryption, HostType host_type){
-    string path = KEYS_DIR + "/" + PVT + "/";
+    fs::path pvt_path = fs::path(KEYS_DIR) / PVT;
     if(host_type == HostType::Node)
-        path += PVT;
+        pvt_path /= PVT;
     else
-        path += ACCT_COMMON;
-    path += KEY_SUFFIX;
+       pvt_path /= ACCT_COMMON;
+    pvt_path += KEY_SUFFIX;
 
-    ifstream fp(path, ios::binary);
+    ifstream fp(pvt_path, ios::binary);
     if(!fp.is_open())
         throw runtime_error("unable to load private key");
     fp.read((char*) pvt_signing, crypto_sign_ed25519_SECRETKEYBYTES);
@@ -202,7 +202,7 @@ Packet parsePacket(string message){
 }
 
 void storeReceipt(Receipt receipt){
-    string file_path = "receipts/" + receipt.packet_id + ".txt";
+    fs::path file_path = fs::path(RECEIPTS_DIR) / (receipt.packet_id + TXT);
     ofstream out(file_path);
     out << getReceiptPayload(receipt) + ' ' + receipt.signature << '\n';
 }
@@ -269,8 +269,8 @@ void signReceipt(Receipt &receipt, unsigned char *pvt_key){
 }
 
 NodeState getNodeState(int node){
-    string path = "state/" + to_string(node) + ".txt";
-    ifstream in(path);
+    fs::path node_state_path = fs::path("state") / (to_string(node) + TXT);
+    ifstream in(node_state_path);
 
     NodeState node_state{};
     in >> node_state.allowed >> node_state.forwarded >> node_state.used;
@@ -281,8 +281,8 @@ NodeState getNodeState(int node){
 }
 
 void writeNodeState(NodeState node_state, int node){
-    string path = "state/" + to_string(node) + ".txt";
-    ofstream out(path);
+    fs::path node_state_path = fs::path("state") / (to_string(node) + TXT);
+    ofstream out(node_state_path);
     out << node_state.allowed << ' ' << node_state.forwarded << ' ' << node_state.used << ' ';
     for(string id : node_state.receipt_ids)
         out << id << ' ';
@@ -325,7 +325,8 @@ void processPacket(unordered_map<int, Node> &nw_config, unordered_map<int, PubKe
     }
     unordered_set<string> prev_pkts;
     string prev_pkt;
-    ifstream prev_pkts_in(PREV_PKTS_PATH);
+    fs::path prev_pkts_path = fs::path(STATE_DIR) / (PREV_IDS + TXT);
+    ifstream prev_pkts_in(prev_pkts_path);
     while(prev_pkts_in >> prev_pkt)
         prev_pkts.insert(prev_pkt);
 
@@ -333,7 +334,7 @@ void processPacket(unordered_map<int, Node> &nw_config, unordered_map<int, PubKe
         cout << "\n duplicate packet id: " << packet.id << ". dropping packet\n";
         return;
     }
-    ofstream prev_pkts_out(PREV_PKTS_PATH, ios::app);
+    ofstream prev_pkts_out(prev_pkts_path, ios::app);
     prev_pkts_out << packet.id << '\n';
 
     if(next_hop_id == -1){
