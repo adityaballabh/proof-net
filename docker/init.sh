@@ -11,7 +11,6 @@ for i in {0..3}; do
     $GEN_KEY keys/pvt/node$i.key keys/pub/node$i.key
 done
 
-
 $GEN_KEY keys/pvt/acct_common.key keys/pub/acct_common.key
 
 docker compose -f docker/docker-compose.yml up 2>&1 | tee logs/out.log

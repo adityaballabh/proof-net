@@ -400,12 +400,13 @@ void handleProof(unordered_map<int, PubKey> &pub_keys, unsigned char* pvt_signin
 
     try{
         Layer layer = getOnionDecrypted(pub_keys[node_id], pvt_encryption, encrypted_proof_str, true);
-        int delim = layer.payload.find(RECEIPT_COMMITMENT_DELIM);
+        string payload = layer.payload;
+        int delim = payload.find(RECEIPT_COMMITMENT_DELIM);
         if(delim == string::npos)
             throw runtime_error("missing proof delim");
 
         cout << "\nsuccesfully decrypted proof\n";
-        string receipts_str = layer.payload.substr(0, delim), commitments_str = layer.payload.substr(delim + 1);
+        string receipts_str = payload.substr(0, delim), commitments_str = payload.substr(delim + 1);
 
         if(!receipts_str.empty()){
             proof = parseProof(receipts_str);
@@ -418,7 +419,6 @@ void handleProof(unordered_map<int, PubKey> &pub_keys, unsigned char* pvt_signin
         ss = stringstream(commitments_str);
         while(ss >> commitment)
             commitments.push_back(commitment);
-        
     } 
     catch(exception &e){
         cout << "\nerror while decrypting proof:" << e.what() << "\ndefaulting to initial forwarded value.\n";

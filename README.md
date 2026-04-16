@@ -8,6 +8,7 @@ A decentralized anonymous network that uses bandwidth contribution proofs to ach
 - Nodes verify and store receipts
 - Onion routing
 - Accounting nodes
+- Route commitments signed by accounting nodes. Verification at each hop
 
 ## References
 [Beej's Guide](https://beej.us/guide/bgnet/pdf/bgnet_usl_c_1.pdf)
