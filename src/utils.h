@@ -71,11 +71,13 @@ struct Layer{
 int createServer(int port);
 int createConnection(string ip, int port);
 void sendWrapper(string message, int sockfd);
-string convertReceipt(Receipt receipt);
 string getBase64Encoded(unsigned char* data, int len);
 string getBase64Decoded(string encoded);
+string getReceiptPayload(Receipt receipt);
 string getPacket(int sockfd);
+string getOnionEncrypted(unordered_map<int, PubKey> &pub_keys, deque<int> route, vector<string> salts, vector<string> signatures, string packet_id, string content);
 unordered_map<int, Node> getConfig(string config_path);
+Layer getOnionDecrypted(PubKey &node_pub, unsigned char *pvt_encryption, string encoded, bool skip_headers);
 string getHash(string salt, int hop);
 void processPacket(unordered_map<int, Node> &nw_config, unordered_map<int, PubKey> &pub_keys, Packet packet, unsigned char* pvt_signing, unsigned char* pvt_encryption, int node_id, 
                    int prev_node);

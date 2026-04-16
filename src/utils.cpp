@@ -93,10 +93,6 @@ string getReceiptPayload(Receipt receipt){
     return receipt.packet_id + ' ' + to_string(receipt.generator) + ' ' + to_string(receipt.receiver) + ' ' + to_string(receipt.bytes);
 }
 
-string convertReceipt(Receipt receipt){
-    return RECEIPT_PREFIX + ' ' + getReceiptPayload(receipt) + ' ' + receipt.signature;
-}
-
 string getBase64Encoded(unsigned char* data, int len){
     int b64_len = sodium_base64_encoded_len(len, sodium_base64_VARIANT_URLSAFE);
     char b64_encoded[b64_len];
@@ -229,7 +225,36 @@ int getNodeID(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config, 
     return id;
 }
 
-Layer getOnionDecrypted(PubKey &node_pub, unsigned char *pvt_encryption, string encoded, bool is_proof){
+string getEncrypted(unsigned char *pub_key, string message){
+    string encrypted;
+    int encrypted_len = message.size() + crypto_box_SEALBYTES;
+    encrypted.resize(encrypted_len);
+    crypto_box_seal((unsigned char*) encrypted.data(), (unsigned char*) message.data(), message.size(), pub_key);
+    return encrypted;
+}
+
+string getOnionEncrypted(unordered_map<int, PubKey> &pub_keys, deque<int> route, vector<string> salts, vector<string> signatures, string packet_id, string content){
+    // next_hop for dest is -1
+    int next_hop = -1, n = route.size(), node = route[n - 1];
+    string curr = string((char*) &next_hop, 4) + packet_id, encrypted;
+    bool has_salts = !salts.empty();
+    if(has_salts)
+        curr += salts[n - 1] + getBase64Decoded(signatures[n - 1]);
+    curr += content;
+    encrypted = getEncrypted(pub_keys[node].encryption, curr);
+
+    for(int i = n - 2; i >= 0; i--){
+        next_hop = htonl(route[i + 1]), node = route[i];
+        curr = string((char*) &next_hop, 4) + packet_id;
+        if(has_salts)
+            curr += salts[i] + getBase64Decoded(signatures[i]);
+        curr += encrypted;
+        encrypted = getEncrypted(pub_keys[node].encryption, curr);
+    }
+    return getBase64Encoded((unsigned char*) encrypted.data(), encrypted.size());
+}
+
+Layer getOnionDecrypted(PubKey &node_pub, unsigned char *pvt_encryption, string encoded, bool skip_headers){
     string bin = getBase64Decoded(encoded), decoded;
     Layer layer;
     if(bin.empty()){
@@ -250,7 +275,7 @@ Layer getOnionDecrypted(PubKey &node_pub, unsigned char *pvt_encryption, string 
     int id_start = HOP_ID_LEN, salt_start = id_start + PACKET_ID_B64_LEN, signature_start = salt_start + SALT_LEN, payload_start = signature_start + crypto_sign_BYTES;
 
     layer.next_hop = next_hop;
-    if(is_proof){
+    if(skip_headers){
         layer.payload = decoded.substr(4);
         return layer;
     }
@@ -313,7 +338,8 @@ void processPacket(unordered_map<int, Node> &nw_config, unordered_map<int, PubKe
         int sockfd = createConnection(prev_hop.ip, prev_hop.port);
         Receipt receipt{packet_id, "", node_id, prev_node, payload_size};
         signReceipt(receipt, pvt_signing);
-        string receipt_str = convertReceipt(receipt) + '\n';
+        string encrypted_receipt = getOnionEncrypted(pub_keys, {prev_node}, {}, {}, "", getReceiptPayload(receipt) + ' ' + receipt.signature);
+        string receipt_str = RECEIPT_PREFIX + encrypted_receipt + '\n';
         sendWrapper(receipt_str, sockfd);
         close(sockfd);
     }
@@ -447,8 +473,8 @@ void handleProof(unordered_map<int, PubKey> &pub_keys, unsigned char* pvt_signin
     }
     else
         setNAK(acct_resp, prev_node);
-    acct_resp += '\n';
-    sendWrapper(acct_resp, new_fd);
+    string encrypted_resp = getOnionEncrypted(pub_keys, {prev_node}, {}, {}, "", acct_resp) + '\n';
+    sendWrapper(encrypted_resp, new_fd);
 }
 
 void processConnections(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_keys, unsigned char* pvt_signing, unsigned char* pvt_encryption, 
@@ -482,7 +508,9 @@ void processConnections(unordered_map<int, Node> &nw_config, map<int, Node> &acc
             
             if(packet_str.substr(0, RECEIPT_PREFIX.size()) == RECEIPT_PREFIX){
                 if(host_type == HostType::Node){
-                    Receipt receipt = parseReceipt(packet_str);
+                    string encrypted_payload = packet_str.substr(RECEIPT_PREFIX.size());
+                    Layer layer = getOnionDecrypted(pub_keys[node_id], pvt_encryption, encrypted_payload, true);
+                    Receipt receipt = parseReceipt(RECEIPT_PREFIX + layer.payload);
                     if(isValidReceipt(receipt, pub_keys[receipt.generator]))
                         storeReceipt(receipt);
                 }
