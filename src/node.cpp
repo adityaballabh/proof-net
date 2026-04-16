@@ -14,15 +14,22 @@ string getEncrypted(unsigned char *pub_key, string message){
     return encrypted;
 }
 
-string getOnionEncrypted(unordered_map<int, PubKey> &pub_keys, deque<int> route, string content){
+string getOnionEncrypted(unordered_map<int, PubKey> &pub_keys, deque<int> route, vector<string> salts, vector<string> signatures, string content){
     // next_hop for dest is -1
     int next_hop = -1, n = route.size(), node = route[n - 1];
-    string curr = string((char*) &next_hop, 4) + content, encrypted;
+    string curr = string((char*) &next_hop, 4), encrypted;
+    bool has_salts = !salts.empty();
+    if(has_salts)
+        curr += salts[n - 1] + getBase64Decoded(signatures[n - 1]);
+    curr += content;
     encrypted = getEncrypted(pub_keys[node].encryption, curr);
 
     for(int i = n - 2; i >= 0; i--){
         next_hop = htonl(route[i + 1]), node = route[i];
-        curr = string((char*) &next_hop, 4) + encrypted;
+        curr = string((char*) &next_hop, 4);
+        if(has_salts)
+            curr += salts[i] + getBase64Decoded(signatures[i]);
+        curr += encrypted;
         encrypted = getEncrypted(pub_keys[node].encryption, curr);
     }
     return getBase64Encoded((unsigned char*) encrypted.data(), encrypted.size());
@@ -46,20 +53,29 @@ Message parseMessage(string message){
     return msg;
 }
 
-vector<Packet> loadMessages(unordered_map<int, PubKey> &pub_keys, vector<int> &delays, int node_id){
-    vector<Packet> packets;
-    string path = "messages/init.txt", line;
+vector<pair<Message, Packet>> loadMessages(vector<int> &delays){
+    vector<pair<Message, Packet>> msg_pkt_pairs;
+    string path = "messages/init.txt", line, salt(SALT_LEN, 0);
     ifstream fp(path);
     while(getline(fp, line)){
         Message message = parseMessage(line);
         Packet packet;
         packet.id = message.id;
-        packet.payload = getOnionEncrypted(pub_keys, message.route, message.content);
-        packets.push_back(packet);
+
+        for(int hop : message.route){
+            randombytes_buf(salt.data(), SALT_LEN);
+            string hash_out = getHash(salt, hop);
+            packet.salts.push_back(salt);
+
+            string enc_hash = getBase64Encoded((unsigned char*) hash_out.data(), crypto_hash_sha256_BYTES);
+            packet.commitments.push_back(enc_hash);
+        }
+
+        msg_pkt_pairs.push_back({message, packet});
         cout << "\ndelay: " << message.delay  << "s message: " << line << '\n';
         delays.push_back(message.delay);
     }
-    return packets;
+    return msg_pkt_pairs;
 }
 
 string convertProof(Proof proof){
@@ -84,16 +100,16 @@ Proof getProof(){
     return proof;
 }
 
-string sendProof(Node acct_node, unordered_map<int, PubKey> &pub_keys, Proof proof, int node_id){
+string sendProofWithCommitments(unordered_map<int, PubKey> &pub_keys, Node acct_node, Proof proof, Packet packet){
     string proof_str, packet_str, encrypted_proof_str;
     int sockfd = createConnection(acct_node.ip, acct_node.port);
 
-    if(!proof.receipts.empty()){
-        proof_str = convertProof(proof);
-        encrypted_proof_str = getOnionEncrypted(pub_keys, {acct_node.id}, proof_str);
-    }
+    proof_str = convertProof(proof) + RECEIPT_COMMITMENT_DELIM;
+    for(string commitment: packet.commitments)
+        proof_str += ' ' + commitment;
+    encrypted_proof_str = getOnionEncrypted(pub_keys, {acct_node.id}, {}, {}, proof_str);
 
-    packet_str = PROOF_PREFIX + encrypted_proof_str + '\n';
+    packet_str = PROOF_PREFIX + encrypted_proof_str + ' ' + packet.id + '\n';
     sendWrapper(packet_str, sockfd);
     string acct_resp = getPacket(sockfd);
     close(sockfd);
@@ -107,17 +123,26 @@ Node getAcctNode(map<int, Node> &acct_config, int node_id){
     return it->second;
 }
 
-bool canSendPacket(map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_keys, Proof proof, int node_id){
+bool canSendPacket(map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_keys, Proof proof, Packet &packet,  int node_id){
     Node acct_node = getAcctNode(acct_config, node_id);
-    string acct_resp = sendProof(acct_node, pub_keys, proof, node_id);
-    return acct_resp == ACCT_RESP_PREFIX + ACK_STR;
+    string acct_resp = sendProofWithCommitments(pub_keys, acct_node, proof, packet);
+    if (acct_resp == ACCT_RESP_PREFIX + NAK_STR)
+        return false;
+
+    stringstream ss(acct_resp);
+    string pref, signature;
+    ss >> pref;
+    while(ss >> signature)
+        packet.signatures.push_back(signature);
+    return true;
 }
 
-void sendPacketWrapper(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_keys, Proof proof, Packet packet, 
-                       unsigned char* pvt_signing, unsigned char* pvt_encryption, int node_id, int prev_node, HostType host_type){
-    if(canSendPacket(acct_config, pub_keys, proof, node_id)){
+void sendPacketWrapper(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_keys, Proof proof, Message message, Packet packet, 
+                       unsigned char* pvt_signing, unsigned char* pvt_encryption, int node_id){
+    if(canSendPacket(acct_config, pub_keys, proof, packet, node_id)){
+        packet.payload = getOnionEncrypted(pub_keys, message.route, packet.salts, packet.signatures, message.content);
         cout << "\nsending packet " << packet.id << '\n';
-        processPacket(nw_config, acct_config, pub_keys, packet, pvt_signing, pvt_encryption, node_id, -1, host_type);
+        processPacket(nw_config, pub_keys, packet, pvt_signing, pvt_encryption, node_id, -1);
     }
     else
         cout << "\nsend was denied for packet " << packet.id << '\n';
@@ -132,20 +157,20 @@ int main(int argc, char **argv){
     cout << unitbuf;
 
     try{
-        init(nw_config, acct_config, pub_keys, pvt_signing, pvt_encryption, argv[2], argv[3], argc);
+        init(nw_config, acct_config, pub_keys, pvt_signing, pvt_encryption, host_type, argv[2], argv[3], argc);
         int node_id = stoi(argv[1]), sockfd = createServer(nw_config[node_id].port);
 
         if(!fork()){
             sleep(2);
             close(sockfd);
             vector<int> delays;
-            vector<Packet> packets = loadMessages(pub_keys, delays, node_id);
-            int packet_cnt = packets.size();
+            vector<pair<Message, Packet>> msg_pkt_pairs = loadMessages(delays);
+            int packet_cnt = msg_pkt_pairs.size();
             for(int i = 0; i < packet_cnt; i++){
-                Packet packet = packets[i];
+                auto [message, packet] = msg_pkt_pairs[i];
                 sleep(delays[i]);
                 Proof proof = getProof();
-                sendPacketWrapper(nw_config, acct_config, pub_keys, proof, packet, pvt_signing, pvt_encryption, node_id, -1, host_type);
+                sendPacketWrapper(nw_config, acct_config, pub_keys, proof, message, packet, pvt_signing, pvt_encryption, node_id);
             }
             exit(0);
         }

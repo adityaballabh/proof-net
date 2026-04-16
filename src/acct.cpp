@@ -9,7 +9,7 @@ int main(int argc, char **argv){
     cout << unitbuf;
         
     try{
-        init(nw_config, acct_config, pub_keys, pvt_signing, pvt_encryption, argv[2], argv[3], argc);
+        init(nw_config, acct_config, pub_keys, pvt_signing, pvt_encryption, host_type, argv[2], argv[3], argc);
         int node_id = stoi(argv[1]), sockfd = createServer(acct_config[node_id].port);
 
         processConnections(nw_config, acct_config, pub_keys, pvt_signing, pvt_encryption, sockfd, node_id, host_type);

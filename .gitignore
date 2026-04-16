@@ -5,3 +5,4 @@ acct
 gen_key
 *.o
 keys
+build.log
