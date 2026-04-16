@@ -33,7 +33,7 @@ vector<pair<Message, Packet>> loadMessages(vector<int> &delays){
         Message message = parseMessage(line);
         randombytes_buf(msg_id.data(), PACKET_ID_LEN);
         msg_id = getBase64Encoded((unsigned char*) msg_id.data(), PACKET_ID_LEN);
-        cout << "prev packet id: " << message.id << ", new packet id: " << msg_id << '\n';
+        cout << "\nprev packet id: " << message.id << ", new packet id: " << msg_id << '\n';
         message.id = msg_id;
 
         Packet packet;
@@ -47,7 +47,7 @@ vector<pair<Message, Packet>> loadMessages(vector<int> &delays){
         }
 
         msg_pkt_pairs.push_back({message, packet});
-        cout << "\ndelay: " << message.delay  << "s message: " << line << '\n';
+        cout << "delay: " << message.delay  << "s message: " << line << '\n';
         delays.push_back(message.delay);
     }
     return msg_pkt_pairs;
@@ -88,8 +88,8 @@ string sendProofWithCommitments(unordered_map<int, PubKey> &pub_keys, Node acct_
         proof_str += ' ' + commitment;
     encrypted_proof_str = getOnionEncrypted(pub_keys, {acct_node.id}, {}, {}, "", proof_str);
 
-    packet_str = PROOF_PREFIX + encrypted_proof_str + '\n';
-    sendWrapper(packet_str, sockfd);
+    packet_str = PROOF_PREFIX + encrypted_proof_str;
+    sendPacket(packet_str, sockfd);
     string acct_resp = getPacket(sockfd);
     close(sockfd);
     return acct_resp;
@@ -119,7 +119,7 @@ bool canSendPacket(map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_
     return true;
 }
 
-void sendPacketWrapper(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_keys, Proof proof, Message message, Packet packet, 
+void validateAndSendPacket(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_keys, Proof proof, Message message, Packet packet, 
                        unsigned char* pvt_signing, unsigned char* pvt_encryption, int node_id){
     if(canSendPacket(acct_config, pub_keys, proof, packet, pvt_encryption, message.id, node_id)){
         packet.payload = getOnionEncrypted(pub_keys, message.route, packet.salts, packet.signatures, message.id, message.content);
@@ -152,7 +152,7 @@ int main(int argc, char **argv){
                 auto [message, packet] = msg_pkt_pairs[i];
                 sleep(delays[i]);
                 Proof proof = getProof();
-                sendPacketWrapper(nw_config, acct_config, pub_keys, proof, message, packet, pvt_signing, pvt_encryption, node_id);
+                validateAndSendPacket(nw_config, acct_config, pub_keys, proof, message, packet, pvt_signing, pvt_encryption, node_id);
             }
             exit(0);
         }

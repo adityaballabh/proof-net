@@ -24,7 +24,7 @@
 using namespace std;
 namespace fs = std::filesystem;
 
-const int BACKLOG = 8, MAX_LEN = 256, INIT_ALLOWED = MAX_LEN * 3, HOP_ID_LEN = 4, PACKET_ID_LEN = 16, SALT_LEN = 16, ACCT_COMMON_ID = -1,   
+const int BACKLOG = 8, MAX_LEN = 256, INIT_ALLOWED = MAX_LEN * 3, HOP_ID_LEN = 4, PACKET_ID_LEN = 8, SALT_LEN = 16, ACCT_COMMON_ID = -1, LEN_BYTES = 2,   
     PACKET_ID_B64_LEN = sodium_base64_encoded_len(PACKET_ID_LEN, sodium_base64_VARIANT_URLSAFE) - 1;
 const string RECEIPT_PREFIX = "receipt ", PROOF_PREFIX = "proof ", ACCT_RESP_PREFIX = "acct_resp ", ACK_STR = "ACK", NAK_STR = "NAK", ACCT_COMMON = "acct_common", INIT = "init",
     PREV_IDS = "prev_ids", KEYS_DIR = "keys", STATE_DIR = "state", RECEIPTS_DIR = "receipts", MESSAGES_DIR = "messages", PUB = "pub", PVT = "pvt", KEY_SUFFIX = ".key", TXT = ".txt";
@@ -70,7 +70,7 @@ struct Layer{
 
 int createServer(int port);
 int createConnection(string ip, int port);
-void sendWrapper(string message, int sockfd);
+void sendPacket(string message, int sockfd);
 string getBase64Encoded(unsigned char* data, int len);
 string getBase64Decoded(string encoded);
 string getReceiptPayload(Receipt receipt);

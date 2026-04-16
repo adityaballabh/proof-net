@@ -69,16 +69,32 @@ int createConnection(string ip, int port){
     return sockfd;
 }
 
-void sendWrapper(string message, int sockfd){
-    int len = message.size(), sent = 0;
-    while(sent < len){
-        int curr = send(sockfd, message.c_str() + sent, len - sent, 0);
-        if(curr < 0){
-            perror("send");
-            exit(1);
-        }
-        sent += curr;
-    }
+void sendWrapper(char *buf, int sockfd, uint16_t len){
+	int bytes_left = len;
+	while(bytes_left){
+		int curr_wr = send(sockfd, buf, bytes_left, 0);
+		if(!curr_wr)
+			break;
+		else if(curr_wr < 0){
+			if(errno == EINTR)
+				continue;
+			else{
+				perror("send");	
+                throw runtime_error("send failed");
+			}
+		}
+		buf += curr_wr;
+		bytes_left -= curr_wr;
+	}
+
+	if(bytes_left)
+		throw runtime_error("send incomplete: " + to_string(bytes_left) + " bytes pending");
+}
+
+void sendPacket(string packet_str, int sockfd){
+    uint16_t packet_len = packet_str.size(), converted_len = htons(packet_len);
+    sendWrapper((char*) &converted_len, sockfd, LEN_BYTES);
+    sendWrapper(packet_str.data(), sockfd, packet_len);
 }
 
 Receipt parseReceipt(string receipt_str){
@@ -122,20 +138,34 @@ bool isValidReceipt(Receipt receipt, PubKey pub_key){
     return valid;
 }
 
-// packets are always a single line
+void recvWrapper(char *buf, int sockfd, uint16_t len){
+	int bytes_left = len;
+	while(bytes_left){
+		int curr_rd = recv(sockfd, buf, bytes_left, 0);
+		if(!curr_rd)
+			break;
+		else if(curr_rd < 0){
+			if(errno == EINTR)
+				continue;
+			else{
+                perror("recv");
+                throw runtime_error("recv failed");
+            }
+		}
+		buf += curr_rd;
+		bytes_left -= curr_rd;
+	}
+
+	if(bytes_left)
+		throw runtime_error("recv incomplete: " + to_string(bytes_left) + " bytes pending");
+}
+
 string getPacket(int sockfd){
-    string data;
-    char buf[MAX_LEN];
-    size_t term_pos;
-    int rcvd = 0;
-    while((rcvd = recv(sockfd, buf, MAX_LEN, 0)) > 0){
-        data.append(buf, rcvd);
-        term_pos = data.find('\n');
-        if(term_pos != string::npos){
-            data.erase(term_pos);
-            break;
-        }
-    }
+    uint16_t len;
+    recvWrapper((char*) &len, sockfd, LEN_BYTES);
+    len = ntohs(len);
+    string data(len, 0);
+    recvWrapper(data.data(), sockfd, len);
     return data;
 }
 
@@ -339,8 +369,8 @@ void processPacket(unordered_map<int, Node> &nw_config, unordered_map<int, PubKe
         Receipt receipt{packet_id, "", node_id, prev_node, payload_size};
         signReceipt(receipt, pvt_signing);
         string encrypted_receipt = getOnionEncrypted(pub_keys, {prev_node}, {}, {}, "", getReceiptPayload(receipt) + ' ' + receipt.signature);
-        string receipt_str = RECEIPT_PREFIX + encrypted_receipt + '\n';
-        sendWrapper(receipt_str, sockfd);
+        string receipt_str = RECEIPT_PREFIX + encrypted_receipt;
+        sendPacket(receipt_str, sockfd);
         close(sockfd);
     }
     
@@ -377,8 +407,7 @@ void processPacket(unordered_map<int, Node> &nw_config, unordered_map<int, PubKe
     Node next_hop = nw_config[next_hop_id];
     int sockfd = createConnection(next_hop.ip, next_hop.port);
     
-    string message = b64_payload + '\n';
-    sendWrapper(message, sockfd);
+    sendPacket(b64_payload, sockfd);
     close(sockfd);
 }
 
@@ -473,8 +502,8 @@ void handleProof(unordered_map<int, PubKey> &pub_keys, unsigned char* pvt_signin
     }
     else
         setNAK(acct_resp, prev_node);
-    string encrypted_resp = getOnionEncrypted(pub_keys, {prev_node}, {}, {}, "", acct_resp) + '\n';
-    sendWrapper(encrypted_resp, new_fd);
+    string encrypted_resp = getOnionEncrypted(pub_keys, {prev_node}, {}, {}, "", acct_resp);
+    sendPacket(encrypted_resp.data(), new_fd);
 }
 
 void processConnections(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_keys, unsigned char* pvt_signing, unsigned char* pvt_encryption, 
