@@ -3,7 +3,7 @@ from pathlib import Path
 
 DOCKER_DIR = Path("docker")
 BOOTSTRAP_DIR = Path("bootstrap")
-DEF_NODE_CNT = 6
+DEF_NODE_CNT = 7
 DEF_ACCT_CNT = 3
 NW_BASE_PORT = 2000
 ACCT_BASE_ID = 3000

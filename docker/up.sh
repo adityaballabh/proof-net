@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-node_cnt=${1:-6}
+node_cnt=${1:-7}
 acct_cnt=${2:-3}
 
 rm -rf receipts keys state bootstrap/acct*

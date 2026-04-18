@@ -77,6 +77,19 @@ services:
       - ../keys/pvt/node5.key:/app/keys/pvt/pvt.key:ro
       - ../keys/pub:/app/keys/pub:ro
 
+  node6:
+    image: proof-net
+    command: /node 6
+    depends_on:
+      - acct0
+    volumes:
+      - ../messages/node6:/app/messages
+      - ../receipts/node6:/app/receipts
+      - ../state/node6:/app/state
+      - ../bootstrap/acct0.txt:/app/acct.txt:ro
+      - ../keys/pvt/node6.key:/app/keys/pvt/pvt.key:ro
+      - ../keys/pub:/app/keys/pub:ro
+
   acct0:
     image: proof-net
     command: /acct 3000

@@ -28,11 +28,13 @@ vector<pair<Message, Packet>> loadMessages(unordered_map<int, vector<int>> &adj,
         message.route = computeRoute(adj, node_id, message.dest);
         randombytes_buf(msg_id.data(), PACKET_ID_LEN);
         msg_id = getBase64Encoded((unsigned char*) msg_id.data(), PACKET_ID_LEN);
-        cout << "\nprev packet id: " << message.id << ", new packet id: " << msg_id << '\n';
+        cout << "\nscheduled message. prev packet id: " << message.id << ", new packet id: " << msg_id << '\n';
         message.id = msg_id;
 
         Packet packet;
+        cout << "computed route: ";
         for(int hop : message.route){
+            cout << hop << ' ';
             randombytes_buf(salt.data(), SALT_LEN);
             string hash_out = getHash(salt, hop);
             packet.salts.push_back(salt);
@@ -42,7 +44,7 @@ vector<pair<Message, Packet>> loadMessages(unordered_map<int, vector<int>> &adj,
         }
 
         msg_pkt_pairs.push_back({message, packet});
-        cout << "delay: " << message.delay  << "s message: " << line << '\n';
+        cout << "\ndelay: " << message.delay  << "s message: " << line << '\n';
         delays.push_back(message.delay);
     }
     return msg_pkt_pairs;
@@ -144,9 +146,11 @@ int main(int argc, char **argv){
             vector<int> delays;
             vector<pair<Message, Packet>> msg_pkt_pairs = loadMessages(adj, delays, node_id);
             int packet_cnt = msg_pkt_pairs.size();
+            time_t start_time = time(0);
             for(int i = 0; i < packet_cnt; i++){
                 auto [message, packet] = msg_pkt_pairs[i];
-                sleep(delays[i]);
+                int delay = delays[i] - (time(0) - start_time);
+                sleep(delay);
                 Proof proof = getProof();
                 validateAndSendPacket(nw_config, acct_config, pub_keys, proof, message, packet, pvt_signing, pvt_encryption, node_id);
             }

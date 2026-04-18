@@ -414,7 +414,7 @@ void processPacket(unordered_map<int, Node> &nw_config, unordered_map<int, PubKe
     close(sockfd);
 }
 
-bool canSend(Proof proof, unordered_map<int, PubKey> &pub_keys, int node){
+bool canSend(Proof proof, unordered_map<int, PubKey> &pub_keys, string packet_id, int node){
     NodeState node_state = getNodeState(node);
     for(Receipt r : proof.receipts){
         if(node_state.receipt_ids.count(r.packet_id) || !isValidReceipt(r, pub_keys[r.generator]) || r.generator == node)
@@ -422,12 +422,17 @@ bool canSend(Proof proof, unordered_map<int, PubKey> &pub_keys, int node){
         node_state.receipt_ids.insert(r.packet_id);
         node_state.forwarded += r.bytes;
     }
+    // skip future receipts for this packet at origin
+    node_state.receipt_ids.insert(packet_id);
 
     int max_used = node_state.used + MAX_LEN, thresh = node_state.forwarded * 2 + INIT_ALLOWED;
+    cout << "\n" << "node" << node << " used: " << max_used << " forwarded: " << node_state.forwarded << " threshold: " << thresh;
     if(max_used <= thresh){
         node_state.used += MAX_LEN;
         node_state.allowed = true;
     }
+    else
+        node_state.allowed = false;
     writeNodeState(node_state, node);
     return node_state.allowed;
 }
@@ -479,7 +484,7 @@ void handleProof(map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_ke
         if(delim == string::npos)
             throw runtime_error("missing proof delim");
 
-        cout << "\nsuccesfully decrypted proof\n";
+        cout << "\nsuccesfully decrypted proof";
         int receipts_len =  delim - PACKET_ID_B64_LEN;
         packet_id = payload.substr(0, PACKET_ID_B64_LEN);
         receipts_str = payload.substr(PACKET_ID_B64_LEN, receipts_len);
@@ -487,10 +492,10 @@ void handleProof(map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_ke
 
         if(!receipts_str.empty()){
             proof = parseProof(receipts_str);
-            cout << "proof " << receipts_str << '\n';
+            cout << "\nproof " << receipts_str;
         }
         else
-            cout << "no receipts found in proof\n";
+            cout << "\nno receipts found in proof";
 
         string commitment;
         ss = stringstream(commitments_str);
@@ -502,7 +507,7 @@ void handleProof(map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_ke
     }
 
     string acct_resp = ACCT_RESP_PREFIX;
-    if(canSend(proof, pub_keys, sender_id)){
+    if(canSend(proof, pub_keys, packet_id, sender_id)){
         for(string commitment : commitments){
             string decoded_commitment = getBase64Decoded(commitment);
 
