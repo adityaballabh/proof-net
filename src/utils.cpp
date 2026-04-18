@@ -42,43 +42,62 @@ int createConnection(string ip, int port){
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_STREAM;
-
     string port_str = to_string(port);
-    if((rv = getaddrinfo(ip.c_str(), port_str.c_str(), &hints, &servinfo)) != 0){
-        cerr << "getaddrinfo: " << gai_strerror(rv);
-        exit(1);
-    }
 
-    for(p = servinfo; p != NULL; p = p->ai_next){
-        if((sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1){
-            perror("client: socket");
+    for(int i = 0; i < MAX_RETRY_CNT; i++){
+        rv = getaddrinfo(ip.c_str(), port_str.c_str(), &hints, &servinfo);
+        if(rv != 0){
+            cerr << "retrying. getaddrinfo: " << gai_strerror(rv) << '\n';
+            sleep(RETRY_SECS);
             continue;
         }
-        if(connect(sockfd, p->ai_addr, p->ai_addrlen) == -1){
-            close(sockfd);
-            perror("client: connect");
-            continue;
+
+        for(p = servinfo; p != NULL; p = p->ai_next){
+            if((sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1){
+                perror("retrying. client: socket");
+                continue;
+            }
+            if(connect(sockfd, p->ai_addr, p->ai_addrlen) == -1){
+                close(sockfd);
+                perror("retrying. client: connect");
+                continue;
+            }
+            break;
         }
-        break;
+        freeaddrinfo(servinfo);
+        if(p)
+            return sockfd;
+        sleep(RETRY_SECS);
     }
-    if(!p){
-        cerr << "client: failed to connect\n";
-        exit(1);
-    }
-    freeaddrinfo(servinfo);
-    return sockfd;
+    throw runtime_error("max connection retries exceeded");
 }
 
-void sendWrapper(string message, int sockfd){
-    int len = message.size(), sent = 0;
-    while(sent < len){
-        int curr = send(sockfd, message.c_str() + sent, len - sent, 0);
-        if(curr < 0){
-            perror("send");
-            exit(1);
-        }
-        sent += curr;
-    }
+void sendWrapper(char *buf, int sockfd, uint16_t len){
+	int bytes_left = len;
+	while(bytes_left){
+		int curr_wr = send(sockfd, buf, bytes_left, 0);
+		if(!curr_wr)
+			break;
+		else if(curr_wr < 0){
+			if(errno == EINTR)
+				continue;
+			else{
+				perror("send");	
+                throw runtime_error("send failed");
+			}
+		}
+		buf += curr_wr;
+		bytes_left -= curr_wr;
+	}
+
+	if(bytes_left)
+		throw runtime_error("send incomplete: " + to_string(bytes_left) + " bytes pending");
+}
+
+void sendPacket(string packet_str, int sockfd){
+    uint16_t packet_len = packet_str.size(), converted_len = htons(packet_len);
+    sendWrapper((char*) &converted_len, sockfd, LEN_BYTES);
+    sendWrapper(packet_str.data(), sockfd, packet_len);
 }
 
 Receipt parseReceipt(string receipt_str){
@@ -93,21 +112,17 @@ string getReceiptPayload(Receipt receipt){
     return receipt.packet_id + ' ' + to_string(receipt.generator) + ' ' + to_string(receipt.receiver) + ' ' + to_string(receipt.bytes);
 }
 
-string convertReceipt(Receipt receipt){
-    return RECEIPT_PREFIX + ' ' + getReceiptPayload(receipt) + ' ' + receipt.signature;
-}
-
 string getBase64Encoded(unsigned char* data, int len){
-    int b64_len = sodium_base64_encoded_len(len, sodium_base64_VARIANT_ORIGINAL);
+    int b64_len = sodium_base64_encoded_len(len, sodium_base64_VARIANT_URLSAFE);
     char b64_encoded[b64_len];
-    return sodium_bin2base64(b64_encoded, b64_len, data, len, sodium_base64_VARIANT_ORIGINAL);                             
+    return sodium_bin2base64(b64_encoded, b64_len, data, len, sodium_base64_VARIANT_URLSAFE);                             
 }
 
 string getBase64Decoded(string encoded){
     string bin;
     bin.resize(encoded.size());
     size_t bin_len;
-    if(sodium_base642bin((unsigned char*) bin.data(), bin.size(), encoded.c_str(), encoded.size(), NULL, &bin_len, NULL, sodium_base64_VARIANT_ORIGINAL)){
+    if(sodium_base642bin((unsigned char*) bin.data(), bin.size(), encoded.c_str(), encoded.size(), NULL, &bin_len, NULL, sodium_base64_VARIANT_URLSAFE)){
         cout << "\nbase64 decoding failed for: " << encoded << '\n';
         return "";
     }
@@ -119,36 +134,50 @@ bool isValidReceipt(Receipt receipt, PubKey pub_key){
     string payload = getReceiptPayload(receipt);
     unsigned char signature[crypto_sign_BYTES];
 
-    if(sodium_base642bin(signature, sizeof(signature), receipt.signature.c_str(), receipt.signature.size(), NULL, NULL, NULL, sodium_base64_VARIANT_ORIGINAL))
+    if(sodium_base642bin(signature, sizeof(signature), receipt.signature.c_str(), receipt.signature.size(), NULL, NULL, NULL, sodium_base64_VARIANT_URLSAFE))
         return false;
 
     bool valid = !crypto_sign_verify_detached(signature, (unsigned char*) payload.c_str(), payload.size(), pub_key.signing);
     return valid;
 }
 
-// packets are always a single line
+void recvWrapper(char *buf, int sockfd, uint16_t len){
+	int bytes_left = len;
+	while(bytes_left){
+		int curr_rd = recv(sockfd, buf, bytes_left, 0);
+		if(!curr_rd)
+			break;
+		else if(curr_rd < 0){
+			if(errno == EINTR)
+				continue;
+			else{
+                perror("recv");
+                throw runtime_error("recv failed");
+            }
+		}
+		buf += curr_rd;
+		bytes_left -= curr_rd;
+	}
+
+	if(bytes_left)
+		throw runtime_error("recv incomplete: " + to_string(bytes_left) + " bytes pending");
+}
+
 string getPacket(int sockfd){
-    string data;
-    char buf[MAX_LEN];
-    size_t term_pos;
-    int rcvd = 0;
-    while((rcvd = recv(sockfd, buf, MAX_LEN, 0)) > 0){
-        data.append(buf, rcvd);
-        term_pos = data.find('\n');
-        if(term_pos != string::npos){
-            data.erase(term_pos);
-            break;
-        }
-    }
+    uint16_t len;
+    recvWrapper((char*) &len, sockfd, LEN_BYTES);
+    len = ntohs(len);
+    string data(len, 0);
+    recvWrapper(data.data(), sockfd, len);
     return data;
 }
 
 template<typename T>
 T getConfig(string config_path){
-    ifstream fp_config(config_path);
+    ifstream config_in(config_path);
     T config;
     string str;
-    while(getline(fp_config, str)){
+    while(getline(config_in, str)){
         stringstream ss(str);
         Node node;
         ss >> node.id >> node.port >> node.ip;
@@ -160,10 +189,10 @@ T getConfig(string config_path){
 }
 
 PubKey getPubKey(string ip){
-    string path = KEYS_DIR + "/" + PUB + "/" + ip + KEY_SUFFIX;
-    ifstream fp(path, ios::binary);
+    fs::path pub_path = fs::path(KEYS_DIR) / PUB / (ip + KEY_SUFFIX);
+    ifstream in(pub_path, ios::binary);
     PubKey curr;
-    fp.read((char*) curr.signing, crypto_sign_ed25519_PUBLICKEYBYTES);
+    in.read((char*) curr.signing, crypto_sign_ed25519_PUBLICKEYBYTES);
     crypto_sign_ed25519_pk_to_curve25519(curr.encryption, curr.signing);
     return curr;
 }
@@ -179,30 +208,23 @@ unordered_map<int, PubKey> getPubKeys(unordered_map<int, Node> &nw_config, map<i
 }
 
 void loadPvtKey(unsigned char* pvt_signing, unsigned char* pvt_encryption, HostType host_type){
-    string path = KEYS_DIR + "/" + PVT + "/";
+    fs::path pvt_path = fs::path(KEYS_DIR) / PVT;
     if(host_type == HostType::Node)
-        path += PVT;
+        pvt_path /= PVT;
     else
-        path += ACCT_COMMON;
-    path += KEY_SUFFIX;
+       pvt_path /= ACCT_COMMON;
+    pvt_path += KEY_SUFFIX;
 
-    ifstream fp(path, ios::binary);
-    if(!fp.is_open())
+    ifstream in(pvt_path, ios::binary);
+    if(!in.is_open())
         throw runtime_error("unable to load private key");
-    fp.read((char*) pvt_signing, crypto_sign_ed25519_SECRETKEYBYTES);
+    in.read((char*) pvt_signing, crypto_sign_ed25519_SECRETKEYBYTES);
 
     crypto_sign_ed25519_sk_to_curve25519(pvt_encryption, pvt_signing);
 }
 
-Packet parsePacket(string message){
-    stringstream ss(message);
-    Packet packet;
-    ss >> packet.id >> packet.payload;
-    return packet;
-}
-
 void storeReceipt(Receipt receipt){
-    string file_path = "receipts/" + receipt.packet_id + ".txt";
+    fs::path file_path = fs::path(RECEIPTS_DIR) / (receipt.packet_id + TXT);
     ofstream out(file_path);
     out << getReceiptPayload(receipt) + ' ' + receipt.signature << '\n';
 }
@@ -236,28 +258,66 @@ int getNodeID(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config, 
     return id;
 }
 
-Layer getOnionDecrypted(PubKey &node_pub, unsigned char *pvt_encryption, string encoded, bool is_proof){
+string getEncrypted(unsigned char *pub_key, string message){
+    string encrypted;
+    int encrypted_len = message.size() + crypto_box_SEALBYTES;
+    encrypted.resize(encrypted_len);
+    crypto_box_seal((unsigned char*) encrypted.data(), (unsigned char*) message.data(), message.size(), pub_key);
+    return encrypted;
+}
+
+string getOnionEncrypted(unordered_map<int, PubKey> &pub_keys, deque<int> route, vector<string> salts, vector<string> signatures, string packet_id, string content){
+    // next_hop for dest is -1
+    int next_hop = -1, n = route.size(), node = route[n - 1];
+    string curr = string((char*) &next_hop, 4) + packet_id, encrypted;
+    bool has_salts = !salts.empty();
+    if(has_salts)
+        curr += salts[n - 1] + getBase64Decoded(signatures[n - 1]);
+    curr += content;
+    encrypted = getEncrypted(pub_keys[node].encryption, curr);
+
+    for(int i = n - 2; i >= 0; i--){
+        next_hop = htonl(route[i + 1]), node = route[i];
+        curr = string((char*) &next_hop, 4) + packet_id;
+        if(has_salts)
+            curr += salts[i] + getBase64Decoded(signatures[i]);
+        curr += encrypted;
+        encrypted = getEncrypted(pub_keys[node].encryption, curr);
+    }
+    return getBase64Encoded((unsigned char*) encrypted.data(), encrypted.size());
+}
+
+Layer getOnionDecrypted(PubKey &node_pub, unsigned char *pvt_encryption, string encoded, bool skip_headers){
     string bin = getBase64Decoded(encoded), decoded;
-    if(bin.empty())
-        return {INT_MIN, "", "", ""};
+    Layer layer;
+    if(bin.empty()){
+        layer.next_hop = INT_MIN;
+        return layer;
+    }
     size_t bin_len = bin.size();
     decoded.resize(bin_len - crypto_box_SEALBYTES);
 
-    if(crypto_box_seal_open((unsigned char*) decoded.data(), (unsigned char*) bin.data(), bin_len, node_pub.encryption, pvt_encryption))
-        return {INT_MIN, "", "", ""};
-
-    int next_hop;
-    memcpy(&next_hop, decoded.data(), 4);
-    next_hop = ntohl(next_hop);
-    int signature_start = SALT_LEN + 4, payload_start = signature_start + crypto_sign_BYTES;
-
-    if(is_proof){
-        string payload = decoded.substr(4);
-        return {next_hop, "", "", payload};
+    if(crypto_box_seal_open((unsigned char*) decoded.data(), (unsigned char*) bin.data(), bin_len, node_pub.encryption, pvt_encryption)){
+        layer.next_hop = INT_MIN;
+        return layer;
     }
 
-    string salt = decoded.substr(4, SALT_LEN), signature = decoded.substr(signature_start, crypto_sign_BYTES), payload = decoded.substr(payload_start);
-    return {next_hop, salt, signature, payload};
+    int next_hop;
+    memcpy(&next_hop, decoded.data(), HOP_ID_LEN);
+    next_hop = ntohl(next_hop);
+    int id_start = HOP_ID_LEN, salt_start = id_start + PACKET_ID_B64_LEN, signature_start = salt_start + SALT_LEN, payload_start = signature_start + crypto_sign_BYTES;
+
+    layer.next_hop = next_hop;
+    if(skip_headers){
+        layer.payload = decoded.substr(4);
+        return layer;
+    }
+
+    layer.id = decoded.substr(id_start, PACKET_ID_B64_LEN);
+    layer.salt = decoded.substr(salt_start, SALT_LEN);
+    layer.signature = decoded.substr(signature_start, crypto_sign_BYTES);
+    layer.payload = decoded.substr(payload_start);
+    return layer;
 }
 
 void signReceipt(Receipt &receipt, unsigned char *pvt_key){
@@ -269,8 +329,8 @@ void signReceipt(Receipt &receipt, unsigned char *pvt_key){
 }
 
 NodeState getNodeState(int node){
-    string path = "state/" + to_string(node) + ".txt";
-    ifstream in(path);
+    fs::path node_state_path = fs::path("state") / (to_string(node) + TXT);
+    ifstream in(node_state_path);
 
     NodeState node_state{};
     in >> node_state.allowed >> node_state.forwarded >> node_state.used;
@@ -281,8 +341,8 @@ NodeState getNodeState(int node){
 }
 
 void writeNodeState(NodeState node_state, int node){
-    string path = "state/" + to_string(node) + ".txt";
-    ofstream out(path);
+    fs::path node_state_path = fs::path("state") / (to_string(node) + TXT);
+    ofstream out(node_state_path);
     out << node_state.allowed << ' ' << node_state.forwarded << ' ' << node_state.used << ' ';
     for(string id : node_state.receipt_ids)
         out << id << ' ';
@@ -297,47 +357,50 @@ string getHash(string salt, int hop){
 void processPacket(unordered_map<int, Node> &nw_config, unordered_map<int, PubKey> &pub_keys, Packet packet, unsigned char* pvt_signing, unsigned char* pvt_encryption, 
                    int node_id, int prev_node){
     int payload_size = packet.payload.size();
+    Layer layer = getOnionDecrypted(pub_keys[node_id], pvt_encryption, packet.payload, false);
+
+    int next_hop_id = layer.next_hop;
+    if(next_hop_id == INT_MIN){
+        cout << "\ndecryption failed for packet" << '\n';
+        return;
+    }
+    string packet_id = layer.id;
 
     if(prev_node != -1 && nw_config.count(prev_node)){
         Node prev_hop = nw_config[prev_node];
         int sockfd = createConnection(prev_hop.ip, prev_hop.port);
-        Receipt receipt{packet.id, "", node_id, prev_node, payload_size};
+        Receipt receipt{packet_id, "", node_id, prev_node, payload_size};
         signReceipt(receipt, pvt_signing);
-        string receipt_str = convertReceipt(receipt) + '\n';
-        sendWrapper(receipt_str, sockfd);
+        string encrypted_receipt = getOnionEncrypted(pub_keys, {prev_node}, {}, {}, "", getReceiptPayload(receipt) + ' ' + receipt.signature);
+        string receipt_str = RECEIPT_PREFIX + encrypted_receipt;
+        sendPacket(receipt_str, sockfd);
         close(sockfd);
     }
-
-    Layer layer = getOnionDecrypted(pub_keys[node_id], pvt_encryption, packet.payload, false);
-    int next_hop_id = layer.next_hop;
-    if(next_hop_id == INT_MIN){
-        cout << "\ndecryption failed for packet " + packet.id << '\n';
-        return;
-    }
-
-    string msg = packet.id + getHash(layer.salt, node_id), payload = layer.payload;
+    
+    string msg = packet_id + getHash(layer.salt, node_id), payload = layer.payload;
     auto acct_pub_key = pub_keys[ACCT_COMMON_ID];
     bool is_valid = !crypto_sign_verify_detached((unsigned char*) layer.signature.data(), (unsigned char*) msg.data(), msg.size(), acct_pub_key.signing);
 
     if(!is_valid){
-        cout << "\nsignature verification failed for packet " + packet.id << ". dropping packet\n";
+        cout << "\nsignature verification failed for packet " + packet_id << ". dropping packet\n";
         return;
     }
     unordered_set<string> prev_pkts;
     string prev_pkt;
-    ifstream prev_pkts_in(PREV_PKTS_PATH);
+    fs::path prev_pkts_path = fs::path(STATE_DIR) / (PREV_IDS + TXT);
+    ifstream prev_pkts_in(prev_pkts_path);
     while(prev_pkts_in >> prev_pkt)
         prev_pkts.insert(prev_pkt);
 
-    if(prev_pkts.count(packet.id)){
-        cout << "\n duplicate packet id: " << packet.id << ". dropping packet\n";
+    if(prev_pkts.count(packet_id)){
+        cout << "\n duplicate packet id: " << packet_id << ". dropping packet\n";
         return;
     }
-    ofstream prev_pkts_out(PREV_PKTS_PATH, ios::app);
-    prev_pkts_out << packet.id << '\n';
+    ofstream prev_pkts_out(prev_pkts_path, ios::app);
+    prev_pkts_out << packet_id << '\n';
 
     if(next_hop_id == -1){
-        cout << "\npacket reached destination: " + packet.id + ' ' + payload << '\n';
+        cout << "\npacket reached destination: " + packet_id + ' ' + payload << '\n';
         return;
     }
     else if(!nw_config.count(next_hop_id))
@@ -347,8 +410,7 @@ void processPacket(unordered_map<int, Node> &nw_config, unordered_map<int, PubKe
     Node next_hop = nw_config[next_hop_id];
     int sockfd = createConnection(next_hop.ip, next_hop.port);
     
-    string message = packet.id + ' ' + b64_payload + '\n';
-    sendWrapper(message, sockfd);
+    sendPacket(b64_payload, sockfd);
     close(sockfd);
 }
 
@@ -389,23 +451,39 @@ void setNAK(string &acct_resp, int prev_node){
     cout << "\ndenied send for " << prev_node << '\n';        
 }
 
-void handleProof(unordered_map<int, PubKey> &pub_keys, unsigned char* pvt_signing, unsigned char* pvt_encryption, string packet_str, int new_fd, 
-                 int node_id, int prev_node){
+bool isCorrectAcct(map<int, Node> &acct_config, int acct_id, int node_id){
+    int n = acct_config.size(), exp_ind = node_id % n;
+    return exp_ind == distance(acct_config.begin(), acct_config.find(acct_id));
+}
+
+void handleProof(map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_keys, unsigned char* pvt_signing, unsigned char* pvt_encryption, string packet_str, int new_fd, 
+                 int acct_id, int sender_id){
+    if(!isCorrectAcct(acct_config, acct_id, sender_id)){
+        string acct_resp = ACCT_RESP_PREFIX;
+        setNAK(acct_resp, sender_id);
+        string encrypted_resp = getOnionEncrypted(pub_keys, {sender_id}, {}, {}, "", acct_resp);
+        sendPacket(encrypted_resp, new_fd);
+        return;
+    }
+
     stringstream ss(packet_str);
-    string pref, encrypted_proof_str, packet_id, commitment;
+    string pref, encrypted_proof_str, receipts_str, commitments_str, packet_id, commitment;
     vector<string> commitments;
     Proof proof;
-    ss >> pref >> encrypted_proof_str >> packet_id;
+    ss >> pref >> encrypted_proof_str;
 
     try{
-        Layer layer = getOnionDecrypted(pub_keys[node_id], pvt_encryption, encrypted_proof_str, true);
+        Layer layer = getOnionDecrypted(pub_keys[acct_id], pvt_encryption, encrypted_proof_str, true);
         string payload = layer.payload;
         int delim = payload.find(RECEIPT_COMMITMENT_DELIM);
         if(delim == string::npos)
             throw runtime_error("missing proof delim");
 
         cout << "\nsuccesfully decrypted proof\n";
-        string receipts_str = payload.substr(0, delim), commitments_str = payload.substr(delim + 1);
+        int receipts_len =  delim - PACKET_ID_B64_LEN;
+        packet_id = payload.substr(0, PACKET_ID_B64_LEN);
+        receipts_str = payload.substr(PACKET_ID_B64_LEN, receipts_len);
+        commitments_str = payload.substr(delim + 1);
 
         if(!receipts_str.empty()){
             proof = parseProof(receipts_str);
@@ -424,12 +502,12 @@ void handleProof(unordered_map<int, PubKey> &pub_keys, unsigned char* pvt_signin
     }
 
     string acct_resp = ACCT_RESP_PREFIX;
-    if(canSend(proof, pub_keys, prev_node)){
+    if(canSend(proof, pub_keys, sender_id)){
         for(string commitment : commitments){
             string decoded_commitment = getBase64Decoded(commitment);
 
             if(decoded_commitment.empty())
-                setNAK(acct_resp, prev_node);
+                setNAK(acct_resp, sender_id);
             else{
                 string msg = packet_id + decoded_commitment;
                 unsigned char signature[crypto_sign_BYTES];
@@ -439,13 +517,54 @@ void handleProof(unordered_map<int, PubKey> &pub_keys, unsigned char* pvt_signin
         }
     }
     else
-        setNAK(acct_resp, prev_node);
-    acct_resp += '\n';
-    sendWrapper(acct_resp, new_fd);
+        setNAK(acct_resp, sender_id);
+    string encrypted_resp = getOnionEncrypted(pub_keys, {sender_id}, {}, {}, "", acct_resp);
+    sendPacket(encrypted_resp.data(), new_fd);
 }
 
-void processConnections(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_keys, unsigned char* pvt_signing, unsigned char* pvt_encryption, 
-                        int sockfd, int node_id, HostType host_type){
+void handleBootstrapReq(unordered_map<int, Node> &nw_config, unordered_map<int, vector<int>> &adj, int sockfd){
+    ostringstream out;
+    int node_cnt = nw_config.size();
+    out << BOOTSTRAP_RESP_PREFIX << ' ' << node_cnt;
+
+    for(auto [id, node] : nw_config){
+        int ngbr_cnt = adj[id].size();
+        out << ' ' << id << ' ' << node.port << ' ' << node.ip << ' ' << ngbr_cnt;
+        for(int ngbr : adj[id])
+            out << ' ' << ngbr;
+    }
+    sendPacket(out.str(), sockfd);
+}
+
+void fetchTopology(unordered_map<int, Node> &nw_config, unordered_map<int, vector<int>> &adj, Node acct, int node_id){
+    int sockfd = createConnection(acct.ip, acct.port);
+    string req = BOOTSTRAP_REQ_PREFIX;
+    sendPacket(req, sockfd);
+
+    string resp = getPacket(sockfd);
+    close(sockfd);
+
+    stringstream ss(resp);
+    string pref;
+    int node_cnt, ngbr_cnt, ngbr;
+    ss >> pref >> node_cnt;
+    if(pref != BOOTSTRAP_RESP_PREFIX)
+        throw runtime_error("invalid bootstrap response: " + resp);
+    
+    for(int i = 0; i < node_cnt; i++){
+        Node curr;
+        ss >> curr.id >> curr.port >> curr.ip >> ngbr_cnt;
+        nw_config[curr.id] = curr;
+
+        for(int j = 0; j < ngbr_cnt; j++){
+            ss >> ngbr;
+            adj[curr.id].push_back(ngbr);
+        }
+    }
+}
+
+void processConnections(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_keys, unordered_map<int, vector<int>> &adj,
+                        unsigned char* pvt_signing, unsigned char* pvt_encryption, int sockfd, int node_id, HostType host_type){
     struct sigaction sa;
     sa.sa_handler = sigchld_handler;
     sigemptyset(&sa.sa_mask);
@@ -475,16 +594,21 @@ void processConnections(unordered_map<int, Node> &nw_config, map<int, Node> &acc
             
             if(packet_str.substr(0, RECEIPT_PREFIX.size()) == RECEIPT_PREFIX){
                 if(host_type == HostType::Node){
-                    Receipt receipt = parseReceipt(packet_str);
+                    string encrypted_payload = packet_str.substr(RECEIPT_PREFIX.size());
+                    Layer layer = getOnionDecrypted(pub_keys[node_id], pvt_encryption, encrypted_payload, true);
+                    Receipt receipt = parseReceipt(RECEIPT_PREFIX + layer.payload);
                     if(isValidReceipt(receipt, pub_keys[receipt.generator]))
                         storeReceipt(receipt);
                 }
             }
             else if(packet_str.substr(0, PROOF_PREFIX.size()) == PROOF_PREFIX && host_type == HostType::Acct)
-                handleProof(pub_keys, pvt_signing, pvt_encryption, packet_str, new_fd, node_id, prev_node);
+                handleProof(acct_config, pub_keys, pvt_signing, pvt_encryption, packet_str, new_fd, node_id, prev_node);
+            else if(packet_str.substr(0, BOOTSTRAP_REQ_PREFIX.size()) == BOOTSTRAP_REQ_PREFIX && host_type == HostType::Acct)
+                handleBootstrapReq(nw_config, adj, new_fd);
             else{
                 int prev_node = getNodeID(nw_config, acct_config, their_addr);
-                Packet packet = parsePacket(packet_str);
+                Packet packet;
+                packet.payload = packet_str;
                 processPacket(nw_config, pub_keys, packet, pvt_signing, pvt_encryption, node_id, prev_node);
             }
             close(new_fd);
@@ -494,15 +618,99 @@ void processConnections(unordered_map<int, Node> &nw_config, map<int, Node> &acc
     }
 }
 
-void init(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_keys, unsigned char* pvt_signing, unsigned char* pvt_encryption, 
-          HostType host_type, string nw_config_path, string acct_config_path, int argc){
-    if(argc != 4)
-        throw runtime_error("usage: node <id> <nw_config_path> <acct_config_path>");
+int getMinDist(unordered_map<int, vector<int>> &adj, int src, int dest){
+    queue<int> q;
+    unordered_set<int> vis;
+    q.push(src);
+    vis.insert(src);
+    int dist = 0;
+
+    while(!q.empty()){
+        int cnt = q.size();
+        while(cnt--){
+            int u = q.front();
+            q.pop();
+            if(u == dest)
+                return dist;
+            for(int ngbr : adj[u]){
+                if(vis.count(ngbr))
+                    continue;
+                q.push(ngbr);
+                vis.insert(ngbr);
+            }
+        }
+        dist++;
+    }
+    return -1;
+}
+
+bool routeExistsLen(unordered_map<int, vector<int>> &adj, unordered_set<int> &vis, deque<int> &route, int node, int dest, int rem_dist){
+    if(!rem_dist)
+        return node == dest;
+    vector<int> ngbrs = adj[node];
+    shuffle(ngbrs.begin(), ngbrs.end(), gen);
+    
+    for(int ngbr : ngbrs){
+        if(vis.count(ngbr))
+            continue;
+        if(ngbr == dest && rem_dist != 1)
+            continue;
+        route.push_back(ngbr);
+        vis.insert(ngbr);
+        if(routeExistsLen(adj, vis, route, ngbr, dest, rem_dist - 1))
+            return true;
+        route.pop_back();
+        vis.erase(ngbr);
+    }
+    return false;
+}
+
+deque<int> computeRoute(unordered_map<int, vector<int>> &adj, int src, int dest){
+    int min_len = getMinDist(adj, src, dest);
+    if(min_len == -1)
+        throw runtime_error("cannot reach " + to_string(dest) + " from " + to_string(src));
+    deque<int> route;
+    unordered_set<int> vis;
+    int curr_len = min_len + gen() % (MAX_RANDOM_HOP_CNT + 1);
+
+    while(curr_len >= min_len){
+        route = {src};
+        vis = {src};
+        if(routeExistsLen(adj, vis, route, src, dest, curr_len))
+            break;
+        curr_len--;
+    }
+    return route;
+}
+
+Node getBootstrapNode(string path){
+    Node acct;
+    ifstream in(path);
+    in >> acct.id >> acct.port >> acct.ip;
+    if(acct.ip.empty())
+        throw runtime_error("invalid bootstrap in " + path);
+    return acct;
+}
+
+void init(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_keys, unordered_map<int, vector<int>> &adj,
+          unsigned char* pvt_signing, unsigned char* pvt_encryption, HostType host_type, string nw_config_path, string acct_config_path, int node_id, int argc){
+    srand(time(0));
     if(sodium_init() == -1)
             throw runtime_error("sodium_init failed");
+    if(argc != 2){
+        string err_str = string("usage: ") + (host_type == HostType::Node ? "node" : "acct") + " <id>";
+        throw runtime_error("usage: node <id>");
+    }
 
-    nw_config = getConfig<unordered_map<int, Node>>(nw_config_path);
-    acct_config = getConfig<map<int, Node>>(acct_config_path);
+    if(host_type == HostType::Node){
+        Node acct = getBootstrapNode(acct_config_path);
+        acct_config[acct.id] = acct;
+        fetchTopology(nw_config, adj, acct, node_id);
+    }
+    else{
+        acct_config = getConfig<map<int, Node>>(acct_config_path);
+        nw_config = getConfig<unordered_map<int, Node>>(nw_config_path);
+    }
     pub_keys = getPubKeys(nw_config, acct_config);
     loadPvtKey(pvt_signing, pvt_encryption, host_type);
 }

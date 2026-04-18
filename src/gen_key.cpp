@@ -16,7 +16,7 @@ int main(int argc, char **argv){
     unsigned char pvt[crypto_sign_ed25519_SECRETKEYBYTES], pub[crypto_sign_ed25519_PUBLICKEYBYTES];
     crypto_sign_keypair(pub, pvt);
 
-    ofstream fp_pvt(argv[1], ios::binary), fp_pub(argv[2], ios::binary);
-    fp_pvt.write((char*) pvt, crypto_sign_ed25519_SECRETKEYBYTES);
-    fp_pub.write((char*) pub, crypto_sign_ed25519_PUBLICKEYBYTES);
+    ofstream pvt_out(argv[1], ios::binary), pub_out(argv[2], ios::binary);
+    pvt_out.write((char*) pvt, crypto_sign_ed25519_SECRETKEYBYTES);
+    pub_out.write((char*) pub, crypto_sign_ed25519_PUBLICKEYBYTES);
 }

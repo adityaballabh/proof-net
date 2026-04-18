@@ -1,51 +1,65 @@
 services:
   node0:
     image: proof-net
-    command: ["/node", "0", "nw_config.txt", "acct_config.txt"]
+    command: ["/node", "0"]
+    depends_on:
+      - acct0
     volumes:
       - ../messages/node0:/app/messages
       - ../receipts/node0:/app/receipts
-       - ../state/node0:/app/state
+      - ../state/node0:/app/state
+      - ../bootstrap/acct0.txt:/app/acct.txt:ro
       - ../keys/pvt/node0.key:/app/keys/pvt/pvt.key:ro
       - ../keys/pub:/app/keys/pub:ro
   node1:
     image: proof-net
-    command: ["/node", "1", "nw_config.txt", "acct_config.txt"]
+    command: ["/node", "1"]
+    depends_on:
+      - acct1
     volumes:
       - ../messages/node1:/app/messages
       - ../receipts/node1:/app/receipts
       - ../state/node1:/app/state
+      - ../bootstrap/acct1.txt:/app/acct.txt:ro
       - ../keys/pvt/node1.key:/app/keys/pvt/pvt.key:ro
       - ../keys/pub:/app/keys/pub:ro
   node2:
     image: proof-net
-    command: ["/node", "2", "nw_config.txt", "acct_config.txt"]
+    command: ["/node", "2"]
+    depends_on:
+      - acct0
     volumes:
       - ../messages/node2:/app/messages
       - ../receipts/node2:/app/receipts
       - ../state/node2:/app/state
+      - ../bootstrap/acct0.txt:/app/acct.txt:ro
       - ../keys/pvt/node2.key:/app/keys/pvt/pvt.key:ro
       - ../keys/pub:/app/keys/pub:ro
   node3:
     image: proof-net
-    command: ["/node", "3", "nw_config.txt", "acct_config.txt"]
+    command: ["/node", "3"]
+    depends_on:
+      - acct1
     volumes:
       - ../messages/node3:/app/messages
       - ../receipts/node3:/app/receipts
       - ../state/node3:/app/state
+      - ../bootstrap/acct1.txt:/app/acct.txt:ro
       - ../keys/pvt/node3.key:/app/keys/pvt/pvt.key:ro
       - ../keys/pub:/app/keys/pub:ro
   acct0:
     image: proof-net
-    command: ["/acct", "1000", "nw_config.txt", "acct_config.txt"]
+    command: ["/acct", "1000"]
     volumes:
       - ../state/acct0:/app/state
       - ../keys/pvt/acct_common.key:/app/keys/pvt/acct_common.key:ro
       - ../keys/pub:/app/keys/pub:ro
+      - ../bootstrap/topo.txt:/app/topo.txt:ro
   acct1:
     image: proof-net
-    command: ["/acct", "1001", "nw_config.txt", "acct_config.txt"]
+    command: ["/acct", "1001"]
     volumes:
       - ../state/acct1:/app/state
       - ../keys/pvt/acct_common.key:/app/keys/pvt/acct_common.key:ro
       - ../keys/pub:/app/keys/pub:ro
+      - ../bootstrap/topo.txt:/app/topo.txt:ro
