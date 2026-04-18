@@ -451,8 +451,21 @@ void setNAK(string &acct_resp, int prev_node){
     cout << "\ndenied send for " << prev_node << '\n';        
 }
 
-void handleProof(unordered_map<int, PubKey> &pub_keys, unsigned char* pvt_signing, unsigned char* pvt_encryption, string packet_str, int new_fd, 
-                 int node_id, int prev_node){
+bool isCorrectAcct(map<int, Node> &acct_config, int acct_id, int node_id){
+    int n = acct_config.size(), exp_ind = node_id % n;
+    return exp_ind == distance(acct_config.begin(), acct_config.find(acct_id));
+}
+
+void handleProof(map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_keys, unsigned char* pvt_signing, unsigned char* pvt_encryption, string packet_str, int new_fd, 
+                 int acct_id, int sender_id){
+    if(!isCorrectAcct(acct_config, acct_id, sender_id)){
+        string acct_resp = ACCT_RESP_PREFIX;
+        setNAK(acct_resp, sender_id);
+        string encrypted_resp = getOnionEncrypted(pub_keys, {sender_id}, {}, {}, "", acct_resp);
+        sendPacket(encrypted_resp, new_fd);
+        return;
+    }
+
     stringstream ss(packet_str);
     string pref, encrypted_proof_str, receipts_str, commitments_str, packet_id, commitment;
     vector<string> commitments;
@@ -460,7 +473,7 @@ void handleProof(unordered_map<int, PubKey> &pub_keys, unsigned char* pvt_signin
     ss >> pref >> encrypted_proof_str;
 
     try{
-        Layer layer = getOnionDecrypted(pub_keys[node_id], pvt_encryption, encrypted_proof_str, true);
+        Layer layer = getOnionDecrypted(pub_keys[acct_id], pvt_encryption, encrypted_proof_str, true);
         string payload = layer.payload;
         int delim = payload.find(RECEIPT_COMMITMENT_DELIM);
         if(delim == string::npos)
@@ -489,12 +502,12 @@ void handleProof(unordered_map<int, PubKey> &pub_keys, unsigned char* pvt_signin
     }
 
     string acct_resp = ACCT_RESP_PREFIX;
-    if(canSend(proof, pub_keys, prev_node)){
+    if(canSend(proof, pub_keys, sender_id)){
         for(string commitment : commitments){
             string decoded_commitment = getBase64Decoded(commitment);
 
             if(decoded_commitment.empty())
-                setNAK(acct_resp, prev_node);
+                setNAK(acct_resp, sender_id);
             else{
                 string msg = packet_id + decoded_commitment;
                 unsigned char signature[crypto_sign_BYTES];
@@ -504,8 +517,8 @@ void handleProof(unordered_map<int, PubKey> &pub_keys, unsigned char* pvt_signin
         }
     }
     else
-        setNAK(acct_resp, prev_node);
-    string encrypted_resp = getOnionEncrypted(pub_keys, {prev_node}, {}, {}, "", acct_resp);
+        setNAK(acct_resp, sender_id);
+    string encrypted_resp = getOnionEncrypted(pub_keys, {sender_id}, {}, {}, "", acct_resp);
     sendPacket(encrypted_resp.data(), new_fd);
 }
 
@@ -589,7 +602,7 @@ void processConnections(unordered_map<int, Node> &nw_config, map<int, Node> &acc
                 }
             }
             else if(packet_str.substr(0, PROOF_PREFIX.size()) == PROOF_PREFIX && host_type == HostType::Acct)
-                handleProof(pub_keys, pvt_signing, pvt_encryption, packet_str, new_fd, node_id, prev_node);
+                handleProof(acct_config, pub_keys, pvt_signing, pvt_encryption, packet_str, new_fd, node_id, prev_node);
             else if(packet_str.substr(0, BOOTSTRAP_REQ_PREFIX.size()) == BOOTSTRAP_REQ_PREFIX && host_type == HostType::Acct)
                 handleBootstrapReq(nw_config, adj, new_fd);
             else{

@@ -92,9 +92,8 @@ string sendProofWithCommitments(unordered_map<int, PubKey> &pub_keys, Node acct_
 
 Node getAcctNode(map<int, Node> &acct_config, int node_id){
     int n = acct_config.size(), ind = node_id % n;
-    auto it = acct_config.begin();
-    advance(it, ind);
-    return it->second;
+    auto node_entry = next(acct_config.begin(), ind);
+    return node_entry->second;
 }
 
 bool canSendPacket(map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_keys, Proof proof, Packet &packet, unsigned char* pvt_encryption, string packet_id, int node_id){
