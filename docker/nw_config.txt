@@ -1,4 +1,6 @@
-0 4000 node0
-1 4001 node1
-2 4002 node2
-3 4003 node3
+0 2000 node0
+1 2001 node1
+2 2002 node2
+3 2003 node3
+4 2004 node4
+5 2005 node5

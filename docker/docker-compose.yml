@@ -1,7 +1,7 @@
 services:
   node0:
     image: proof-net
-    command: ["/node", "0"]
+    command: /node 0
     depends_on:
       - acct0
     volumes:
@@ -11,9 +11,10 @@ services:
       - ../bootstrap/acct0.txt:/app/acct.txt:ro
       - ../keys/pvt/node0.key:/app/keys/pvt/pvt.key:ro
       - ../keys/pub:/app/keys/pub:ro
+
   node1:
     image: proof-net
-    command: ["/node", "1"]
+    command: /node 1
     depends_on:
       - acct1
     volumes:
@@ -23,43 +24,82 @@ services:
       - ../bootstrap/acct1.txt:/app/acct.txt:ro
       - ../keys/pvt/node1.key:/app/keys/pvt/pvt.key:ro
       - ../keys/pub:/app/keys/pub:ro
+
   node2:
     image: proof-net
-    command: ["/node", "2"]
+    command: /node 2
     depends_on:
-      - acct0
+      - acct2
     volumes:
       - ../messages/node2:/app/messages
       - ../receipts/node2:/app/receipts
       - ../state/node2:/app/state
-      - ../bootstrap/acct0.txt:/app/acct.txt:ro
+      - ../bootstrap/acct2.txt:/app/acct.txt:ro
       - ../keys/pvt/node2.key:/app/keys/pvt/pvt.key:ro
       - ../keys/pub:/app/keys/pub:ro
+
   node3:
     image: proof-net
-    command: ["/node", "3"]
+    command: /node 3
     depends_on:
-      - acct1
+      - acct0
     volumes:
       - ../messages/node3:/app/messages
       - ../receipts/node3:/app/receipts
       - ../state/node3:/app/state
-      - ../bootstrap/acct1.txt:/app/acct.txt:ro
+      - ../bootstrap/acct0.txt:/app/acct.txt:ro
       - ../keys/pvt/node3.key:/app/keys/pvt/pvt.key:ro
       - ../keys/pub:/app/keys/pub:ro
+
+  node4:
+    image: proof-net
+    command: /node 4
+    depends_on:
+      - acct1
+    volumes:
+      - ../messages/node4:/app/messages
+      - ../receipts/node4:/app/receipts
+      - ../state/node4:/app/state
+      - ../bootstrap/acct1.txt:/app/acct.txt:ro
+      - ../keys/pvt/node4.key:/app/keys/pvt/pvt.key:ro
+      - ../keys/pub:/app/keys/pub:ro
+
+  node5:
+    image: proof-net
+    command: /node 5
+    depends_on:
+      - acct2
+    volumes:
+      - ../messages/node5:/app/messages
+      - ../receipts/node5:/app/receipts
+      - ../state/node5:/app/state
+      - ../bootstrap/acct2.txt:/app/acct.txt:ro
+      - ../keys/pvt/node5.key:/app/keys/pvt/pvt.key:ro
+      - ../keys/pub:/app/keys/pub:ro
+
   acct0:
     image: proof-net
-    command: ["/acct", "1000"]
+    command: /acct 3000
     volumes:
       - ../state/acct0:/app/state
       - ../keys/pvt/acct_common.key:/app/keys/pvt/acct_common.key:ro
       - ../keys/pub:/app/keys/pub:ro
       - ../bootstrap/topo.txt:/app/topo.txt:ro
+
   acct1:
     image: proof-net
-    command: ["/acct", "1001"]
+    command: /acct 3001
     volumes:
       - ../state/acct1:/app/state
+      - ../keys/pvt/acct_common.key:/app/keys/pvt/acct_common.key:ro
+      - ../keys/pub:/app/keys/pub:ro
+      - ../bootstrap/topo.txt:/app/topo.txt:ro
+
+  acct2:
+    image: proof-net
+    command: /acct 3002
+    volumes:
+      - ../state/acct2:/app/state
       - ../keys/pvt/acct_common.key:/app/keys/pvt/acct_common.key:ro
       - ../keys/pub:/app/keys/pub:ro
       - ../bootstrap/topo.txt:/app/topo.txt:ro
