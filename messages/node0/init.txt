@@ -1,2 +1,0 @@
-0_03 3 3 first message from 0
-0_012 11 2 another message from node 0

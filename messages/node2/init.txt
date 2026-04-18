@@ -1,2 +1,4 @@
-2_21 5 1 first message from node 2
-2_2310 13 0 another message from 2
+2_first 3 1 first message from node2
+2_second 8 0 this is another message from two
+2_third 13 1 third message from node2 without forwarding
+2_fourth 24 1 another attempt from node2 after forwarding
