@@ -7,4 +7,4 @@ gen_key
 keys
 receipts
 state
-build.log
+logs
