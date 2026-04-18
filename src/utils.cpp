@@ -42,31 +42,34 @@ int createConnection(string ip, int port){
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_STREAM;
-
     string port_str = to_string(port);
-    if((rv = getaddrinfo(ip.c_str(), port_str.c_str(), &hints, &servinfo)) != 0){
-        cerr << "getaddrinfo: " << gai_strerror(rv);
-        exit(1);
-    }
 
-    for(p = servinfo; p != NULL; p = p->ai_next){
-        if((sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1){
-            perror("client: socket");
+    for(int i = 0; i < MAX_RETRY_CNT; i++){
+        rv = getaddrinfo(ip.c_str(), port_str.c_str(), &hints, &servinfo);
+        if(rv != 0){
+            cerr << "retrying. getaddrinfo: " << gai_strerror(rv) << '\n';
+            sleep(RETRY_SECS);
             continue;
         }
-        if(connect(sockfd, p->ai_addr, p->ai_addrlen) == -1){
-            close(sockfd);
-            perror("client: connect");
-            continue;
+
+        for(p = servinfo; p != NULL; p = p->ai_next){
+            if((sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1){
+                perror("retrying. client: socket");
+                continue;
+            }
+            if(connect(sockfd, p->ai_addr, p->ai_addrlen) == -1){
+                close(sockfd);
+                perror("retrying. client: connect");
+                continue;
+            }
+            break;
         }
-        break;
+        freeaddrinfo(servinfo);
+        if(p)
+            return sockfd;
+        sleep(RETRY_SECS);
     }
-    if(!p){
-        cerr << "client: failed to connect\n";
-        exit(1);
-    }
-    freeaddrinfo(servinfo);
-    return sockfd;
+    throw runtime_error("max connection retries exceeded");
 }
 
 void sendWrapper(char *buf, int sockfd, uint16_t len){
@@ -171,10 +174,10 @@ string getPacket(int sockfd){
 
 template<typename T>
 T getConfig(string config_path){
-    ifstream fp_config(config_path);
+    ifstream config_in(config_path);
     T config;
     string str;
-    while(getline(fp_config, str)){
+    while(getline(config_in, str)){
         stringstream ss(str);
         Node node;
         ss >> node.id >> node.port >> node.ip;
@@ -187,9 +190,9 @@ T getConfig(string config_path){
 
 PubKey getPubKey(string ip){
     fs::path pub_path = fs::path(KEYS_DIR) / PUB / (ip + KEY_SUFFIX);
-    ifstream fp(pub_path, ios::binary);
+    ifstream in(pub_path, ios::binary);
     PubKey curr;
-    fp.read((char*) curr.signing, crypto_sign_ed25519_PUBLICKEYBYTES);
+    in.read((char*) curr.signing, crypto_sign_ed25519_PUBLICKEYBYTES);
     crypto_sign_ed25519_pk_to_curve25519(curr.encryption, curr.signing);
     return curr;
 }
@@ -212,10 +215,10 @@ void loadPvtKey(unsigned char* pvt_signing, unsigned char* pvt_encryption, HostT
        pvt_path /= ACCT_COMMON;
     pvt_path += KEY_SUFFIX;
 
-    ifstream fp(pvt_path, ios::binary);
-    if(!fp.is_open())
+    ifstream in(pvt_path, ios::binary);
+    if(!in.is_open())
         throw runtime_error("unable to load private key");
-    fp.read((char*) pvt_signing, crypto_sign_ed25519_SECRETKEYBYTES);
+    in.read((char*) pvt_signing, crypto_sign_ed25519_SECRETKEYBYTES);
 
     crypto_sign_ed25519_sk_to_curve25519(pvt_encryption, pvt_signing);
 }
@@ -506,8 +509,49 @@ void handleProof(unordered_map<int, PubKey> &pub_keys, unsigned char* pvt_signin
     sendPacket(encrypted_resp.data(), new_fd);
 }
 
-void processConnections(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_keys, unsigned char* pvt_signing, unsigned char* pvt_encryption, 
-                        int sockfd, int node_id, HostType host_type){
+void handleBootstrapReq(unordered_map<int, Node> &nw_config, unordered_map<int, vector<int>> &adj, int sockfd){
+    ostringstream out;
+    int node_cnt = nw_config.size();
+    out << BOOTSTRAP_RESP_PREFIX << ' ' << node_cnt;
+
+    for(auto [id, node] : nw_config){
+        int ngbr_cnt = adj[id].size();
+        out << ' ' << id << ' ' << node.port << ' ' << node.ip << ' ' << ngbr_cnt;
+        for(int ngbr : adj[id])
+            out << ' ' << ngbr;
+    }
+    sendPacket(out.str(), sockfd);
+}
+
+void fetchTopology(unordered_map<int, Node> &nw_config, unordered_map<int, vector<int>> &adj, Node acct, int node_id){
+    int sockfd = createConnection(acct.ip, acct.port);
+    string req = BOOTSTRAP_REQ_PREFIX;
+    sendPacket(req, sockfd);
+
+    string resp = getPacket(sockfd);
+    close(sockfd);
+
+    stringstream ss(resp);
+    string pref;
+    int node_cnt, ngbr_cnt, ngbr;
+    ss >> pref >> node_cnt;
+    if(pref != BOOTSTRAP_RESP_PREFIX)
+        throw runtime_error("invalid bootstrap response: " + resp);
+    
+    for(int i = 0; i < node_cnt; i++){
+        Node curr;
+        ss >> curr.id >> curr.port >> curr.ip >> ngbr_cnt;
+        nw_config[curr.id] = curr;
+
+        for(int j = 0; j < ngbr_cnt; j++){
+            ss >> ngbr;
+            adj[curr.id].push_back(ngbr);
+        }
+    }
+}
+
+void processConnections(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_keys, unordered_map<int, vector<int>> &adj,
+                        unsigned char* pvt_signing, unsigned char* pvt_encryption, int sockfd, int node_id, HostType host_type){
     struct sigaction sa;
     sa.sa_handler = sigchld_handler;
     sigemptyset(&sa.sa_mask);
@@ -546,6 +590,8 @@ void processConnections(unordered_map<int, Node> &nw_config, map<int, Node> &acc
             }
             else if(packet_str.substr(0, PROOF_PREFIX.size()) == PROOF_PREFIX && host_type == HostType::Acct)
                 handleProof(pub_keys, pvt_signing, pvt_encryption, packet_str, new_fd, node_id, prev_node);
+            else if(packet_str.substr(0, BOOTSTRAP_REQ_PREFIX.size()) == BOOTSTRAP_REQ_PREFIX && host_type == HostType::Acct)
+                handleBootstrapReq(nw_config, adj, new_fd);
             else{
                 int prev_node = getNodeID(nw_config, acct_config, their_addr);
                 Packet packet;
@@ -559,15 +605,99 @@ void processConnections(unordered_map<int, Node> &nw_config, map<int, Node> &acc
     }
 }
 
-void init(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_keys, unsigned char* pvt_signing, unsigned char* pvt_encryption, 
-          HostType host_type, string nw_config_path, string acct_config_path, int argc){
-    if(argc != 4)
-        throw runtime_error("usage: node <id> <nw_config_path> <acct_config_path>");
+int getMinDist(unordered_map<int, vector<int>> &adj, int src, int dest){
+    queue<int> q;
+    unordered_set<int> vis;
+    q.push(src);
+    vis.insert(src);
+    int dist = 0;
+
+    while(!q.empty()){
+        int cnt = q.size();
+        while(cnt--){
+            int u = q.front();
+            q.pop();
+            if(u == dest)
+                return dist;
+            for(int ngbr : adj[u]){
+                if(vis.count(ngbr))
+                    continue;
+                q.push(ngbr);
+                vis.insert(ngbr);
+            }
+        }
+        dist++;
+    }
+    return -1;
+}
+
+bool routeExistsLen(unordered_map<int, vector<int>> &adj, unordered_set<int> &vis, deque<int> &route, int node, int dest, int rem_dist){
+    if(!rem_dist)
+        return node == dest;
+    vector<int> ngbrs = adj[node];
+    shuffle(ngbrs.begin(), ngbrs.end(), gen);
+    
+    for(int ngbr : ngbrs){
+        if(vis.count(ngbr))
+            continue;
+        if(ngbr == dest && rem_dist != 1)
+            continue;
+        route.push_back(ngbr);
+        vis.insert(ngbr);
+        if(routeExistsLen(adj, vis, route, ngbr, dest, rem_dist - 1))
+            return true;
+        route.pop_back();
+        vis.erase(ngbr);
+    }
+    return false;
+}
+
+deque<int> computeRoute(unordered_map<int, vector<int>> &adj, int src, int dest){
+    int min_len = getMinDist(adj, src, dest);
+    if(min_len == -1)
+        throw runtime_error("cannot reach " + to_string(dest) + " from " + to_string(src));
+    deque<int> route;
+    unordered_set<int> vis;
+    int curr_len = min_len + gen() % (MAX_RANDOM_HOP_CNT + 1);
+
+    while(curr_len >= min_len){
+        route = {src};
+        vis = {src};
+        if(routeExistsLen(adj, vis, route, src, dest, curr_len))
+            break;
+        curr_len--;
+    }
+    return route;
+}
+
+Node getBootstrapNode(string path){
+    Node acct;
+    ifstream in(path);
+    in >> acct.id >> acct.port >> acct.ip;
+    if(acct.ip.empty())
+        throw runtime_error("invalid bootstrap in " + path);
+    return acct;
+}
+
+void init(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_keys, unordered_map<int, vector<int>> &adj,
+          unsigned char* pvt_signing, unsigned char* pvt_encryption, HostType host_type, string nw_config_path, string acct_config_path, int node_id, int argc){
+    srand(time(0));
     if(sodium_init() == -1)
             throw runtime_error("sodium_init failed");
+    if(argc != 2){
+        string err_str = string("usage: ") + (host_type == HostType::Node ? "node" : "acct") + " <id>";
+        throw runtime_error("usage: node <id>");
+    }
 
-    nw_config = getConfig<unordered_map<int, Node>>(nw_config_path);
-    acct_config = getConfig<map<int, Node>>(acct_config_path);
+    if(host_type == HostType::Node){
+        Node acct = getBootstrapNode(acct_config_path);
+        acct_config[acct.id] = acct;
+        fetchTopology(nw_config, adj, acct, node_id);
+    }
+    else{
+        acct_config = getConfig<map<int, Node>>(acct_config_path);
+        nw_config = getConfig<unordered_map<int, Node>>(nw_config_path);
+    }
     pub_keys = getPubKeys(nw_config, acct_config);
     loadPvtKey(pvt_signing, pvt_encryption, host_type);
 }

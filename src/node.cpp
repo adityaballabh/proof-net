@@ -3,34 +3,29 @@
 struct Message{
     string id, content;
     deque<int> route;
-    int delay;
+    int dest, delay;
 };
 
 Message parseMessage(string message){
     stringstream ss_msg(message);
     Message msg;
-    string route, tok, content;
-    ss_msg >> msg.id >> msg.delay >> route;
+    string content;
+    ss_msg >> msg.id >> msg.delay >> msg.dest;
     getline(ss_msg, content);
     if(content.empty())
         throw runtime_error("no packet content found");
     msg.content = content.substr(1);
-
-    stringstream ss_route(route);
-    while(getline(ss_route, tok, ',')){
-        int node = stoi(tok);
-        msg.route.push_back(node);
-    }
     return msg;
 }
 
-vector<pair<Message, Packet>> loadMessages(vector<int> &delays){
+vector<pair<Message, Packet>> loadMessages(unordered_map<int, vector<int>> &adj, vector<int> &delays, int node_id){
     vector<pair<Message, Packet>> msg_pkt_pairs;
     string line, salt(SALT_LEN, 0), msg_id(PACKET_ID_LEN, 0);
     fs::path messages_path = fs::path(MESSAGES_DIR) / (INIT + TXT);
-    ifstream fp(messages_path);
-    while(getline(fp, line)){
+    ifstream in(messages_path);
+    while(getline(in, line)){
         Message message = parseMessage(line);
+        message.route = computeRoute(adj, node_id, message.dest);
         randombytes_buf(msg_id.data(), PACKET_ID_LEN);
         msg_id = getBase64Encoded((unsigned char*) msg_id.data(), PACKET_ID_LEN);
         cout << "\nprev packet id: " << message.id << ", new packet id: " << msg_id << '\n';
@@ -131,22 +126,24 @@ void validateAndSendPacket(unordered_map<int, Node> &nw_config, map<int, Node> &
 }
 
 int main(int argc, char **argv){
-    unordered_map<int, Node> nw_config;
     map<int, Node> acct_config;
+    unordered_map<int, Node> nw_config;
+    unordered_map<int, vector<int>> adj;
     unordered_map<int, PubKey> pub_keys;
     unsigned char pvt_signing[crypto_sign_ed25519_SECRETKEYBYTES], pvt_encryption[crypto_box_SECRETKEYBYTES];
     HostType host_type = HostType::Node;
     cout << unitbuf;
 
     try{
-        init(nw_config, acct_config, pub_keys, pvt_signing, pvt_encryption, host_type, argv[2], argv[3], argc);
-        int node_id = stoi(argv[1]), sockfd = createServer(nw_config[node_id].port);
+        int node_id = stoi(argv[1]), sockfd;
+        init(nw_config, acct_config, pub_keys, adj, pvt_signing, pvt_encryption, host_type, "", BOOTSTRAP_CONFIG_PATH, node_id, argc);
+        sockfd = createServer(nw_config[node_id].port);
 
         if(!fork()){
             sleep(2);
             close(sockfd);
             vector<int> delays;
-            vector<pair<Message, Packet>> msg_pkt_pairs = loadMessages(delays);
+            vector<pair<Message, Packet>> msg_pkt_pairs = loadMessages(adj, delays, node_id);
             int packet_cnt = msg_pkt_pairs.size();
             for(int i = 0; i < packet_cnt; i++){
                 auto [message, packet] = msg_pkt_pairs[i];
@@ -156,7 +153,7 @@ int main(int argc, char **argv){
             }
             exit(0);
         }
-        processConnections(nw_config, acct_config, pub_keys, pvt_signing, pvt_encryption, sockfd, node_id, host_type);
+        processConnections(nw_config, acct_config, pub_keys, adj, pvt_signing, pvt_encryption, sockfd, node_id, host_type);
     }
     catch(exception &e){
         cerr << e.what() << '\n';
