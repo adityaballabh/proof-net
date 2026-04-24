@@ -3,10 +3,11 @@ LINKLIBS = -lsodium
 
 NODEOBJECTS = obj/node.o obj/utils.o
 ACCTOBJECTS = obj/acct.o obj/utils.o
+ADVERSARYOBJECTS = obj/adversary.o obj/utils.o
 
 .PHONY: all clean
 
-all: node acct gen_key
+all: node acct adversary gen_key
 
 node: $(NODEOBJECTS) | obj
 	$(CXX) $(COMPILERFLAGS) $^ -o $@ $(LINKLIBS)
@@ -14,11 +15,14 @@ node: $(NODEOBJECTS) | obj
 acct: $(ACCTOBJECTS) | obj
 	$(CXX) $(COMPILERFLAGS) $^ -o $@ $(LINKLIBS)
 
+adversary: $(ADVERSARYOBJECTS) | obj
+	$(CXX) $(COMPILERFLAGS) $^ -o $@ $(LINKLIBS)
+
 gen_key: src/gen_key.cpp
 	$(CXX) $(COMPILERFLAGS) $< -o $@ $(LINKLIBS)
 
 clean:
-	$(RM) obj/*.o node acct gen_key
+	$(RM) obj/*.o node acct adversary gen_key
 
 obj/%.o: src/%.cpp | obj
 	$(CXX) $(COMPILERFLAGS)  -c -o $@ $<

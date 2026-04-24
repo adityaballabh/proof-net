@@ -8,4 +8,4 @@ COPY Makefile Makefile
 COPY src src
 COPY messages messages
 COPY state state
-RUN make && cp /app/node /node && cp /app/acct /acct && cp /app/gen_key /gen_key
+RUN make && cp /app/node /node && cp /app/acct /acct && cp /app/adversary /adversary && cp /app/gen_key /gen_key

@@ -27,7 +27,7 @@ services:
 
   node2:
     image: proof-net
-    command: /node 2
+    command: /adversary 2 selfish_send 1 6
     depends_on:
       - acct2
     volumes:
