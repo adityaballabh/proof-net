@@ -90,5 +90,7 @@ void processPacket(unordered_map<int, Node> &nw_config, unordered_map<int, PubKe
 void processConnections(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_keys, unordered_map<int, vector<int>> &edges,
                         unsigned char* pvt_signing, unsigned char* pvt_encryption, int sockfd, int node_id, HostType host_type);
 deque<int> computeRoute(unordered_map<int, vector<int>> &adj, int src, int dest);
+Proof getProof();
+bool canSendPacket(map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_keys, Proof proof, Packet &packet, unsigned char* pvt_encryption, string packet_id, int node_id);
 void init(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_keys, unordered_map<int, vector<int>> &adj,
           unsigned char* pvt_signing, unsigned char* pvt_encryption, HostType host_type, string nw_config_path, string acct_config_path, int node_id, int argc);

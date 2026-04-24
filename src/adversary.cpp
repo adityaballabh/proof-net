@@ -6,80 +6,10 @@ struct AttackMessage {
   string packet_id;
 };
 
-string convertReceipt(Receipt receipt) {
-  return RECEIPT_PREFIX + ' ' + getReceiptPayload(receipt) + ' ' +
-         receipt.signature;
-}
-
-string convertProof(Proof proof) {
-  string proof_str;
-  for (Receipt receipt : proof.receipts)
-    proof_str += convertReceipt(receipt) + RECEIPT_DELIM;
-  return proof_str;
-}
-
 string getRandomId(int len) {
   string raw(len, 0);
   randombytes_buf(raw.data(), len);
   return getBase64Encoded((unsigned char *)raw.data(), len);
-}
-
-Proof getProof() {
-  Proof proof;
-  for (auto file : fs::directory_iterator(RECEIPTS_DIR)) {
-    ifstream in(file.path());
-    string receipt_str;
-    getline(in, receipt_str);
-    Receipt receipt;
-    stringstream ss(receipt_str);
-    ss >> receipt.packet_id >> receipt.generator >> receipt.receiver >>
-        receipt.bytes >> receipt.signature;
-    proof.receipts.push_back(receipt);
-    fs::remove(file.path());
-  }
-  return proof;
-}
-
-Node getAcctNode(map<int, Node> &acct_config, int node_id) {
-  int ind = node_id % acct_config.size();
-  return next(acct_config.begin(), ind)->second;
-}
-
-string sendProofWithCommitments(unordered_map<int, PubKey> &pub_keys,
-                                Node acct_node, Proof proof, Packet packet,
-                                string packet_id) {
-  int sockfd = createConnection(acct_node.ip, acct_node.port);
-  string proof_str = packet_id + convertProof(proof) + RECEIPT_COMMITMENT_DELIM;
-  for (string commitment : packet.commitments)
-    proof_str += ' ' + commitment;
-
-  string encrypted_proof =
-      getOnionEncrypted(pub_keys, {acct_node.id}, {}, {}, "", proof_str);
-  sendPacket(PROOF_PREFIX + encrypted_proof, sockfd);
-  string acct_resp = getPacket(sockfd);
-  close(sockfd);
-  return acct_resp;
-}
-
-bool canSendPacket(map<int, Node> &acct_config,
-                   unordered_map<int, PubKey> &pub_keys, Proof proof,
-                   Packet &packet, unsigned char *pvt_encryption,
-                   string packet_id, int node_id) {
-  Node acct_node = getAcctNode(acct_config, node_id);
-  string encrypted_resp =
-      sendProofWithCommitments(pub_keys, acct_node, proof, packet, packet_id);
-  Layer layer = getOnionDecrypted(pub_keys[node_id], pvt_encryption,
-                                  encrypted_resp, true);
-  string acct_resp = layer.payload;
-  if (acct_resp == ACCT_RESP_PREFIX + NAK_STR)
-    return false;
-
-  stringstream ss(acct_resp);
-  string prefix, signature;
-  ss >> prefix;
-  while (ss >> signature)
-    packet.signatures.push_back(signature);
-  return true;
 }
 
 Packet buildPacket(const deque<int> &route, string packet_id, string content,
