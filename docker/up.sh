@@ -18,4 +18,4 @@ done
 
 $GEN_KEY keys/pvt/acct_common.key keys/pub/acct_common.key
 
-docker-compose -f docker/docker-compose.yml up 2>&1 | tee logs/out.log
+docker compose -f docker/docker-compose.yml up 2>&1 | tee logs/out.log
