@@ -46,11 +46,17 @@ def parse_adversary_spec(spec):
                         f"invalid adversary spec entry '{entry}': "
                         "selfish_send accepts at most one optional count"
                     )
-            elif mode == "collude":
+            elif mode == "sendFakeReceiptsSelf":
                 if len(extra_args) < 1 or len(extra_args) > 2:
                     __import__("sys").exit(
                         f"invalid adversary spec entry '{entry}': "
-                        "collude requires peer and optional fake_receipt_cnt"
+                        "sendFakeReceiptsSelf requires dest and optional fake_receipt_cnt"
+                    )
+            elif mode == "mutual_collude":
+                if len(extra_args) < 1 or len(extra_args) > 2:
+                    __import__("sys").exit(
+                        f"invalid adversary spec entry '{entry}': "
+                        "mutual_collude requires peer and optional fake_receipt_cnt"
                     )
             else:
                 __import__("sys").exit(

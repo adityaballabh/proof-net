@@ -23,6 +23,8 @@ For adversarial testing, we use up.sh and pass in the spec (there's exmaple belo
 
 - `node_id:skip_verify:dest`
 - `node_id:selfish_send:dest[:count]`
+- `node_id:collude:dest:peer[:fake_receipt_cnt]`
+- `node_id:mutual_collude:dest:peer[:fake_receipt_cnt]`
 
 ## Adversarial Testing
 
@@ -32,13 +34,15 @@ Examples:
 
 - `./docker/up.sh 7 3 '2:skip_verify:1'`
 - `./docker/up.sh 7 3 '2:selfish_send:1:6'`
-
-That third example starts nodes `2` and `5` as colluding adversaries while the rest of the network remains honest.
+- `./docker/up.sh 7 3 '2:sendFakeReceiptsSelf:1:2'`
+- `./docker/up.sh 7 3 '1:mutual_collude:3:2:2;2:mutual_collude:3:1:2'`
 
 Modes:
 
 - `./adversary <id> skip_verify <dest>` => sends a packet without valid accounting signatures. The first relay should log `signature verification failed ... dropping packet`. And the real logs will look like this: `node2-1  | signature verification failed for packet oWvSrHf2uTg=. dropping packet`
 - `./adversary <id> selfish_send <dest> [count]` keeps requesting sends with an empty proof. The node gets the initial allowance, then accounting starts returning `NAK` once it exceeds the threshold. And the real logs will look like this: `node2-1  | [selfish_send] accounting denied packet S7wPvmeVosI=`
+- `./adversary <id> sendFakeReceiptsSelf <dest> [fake_receipt_cnt]` self-issued fake receipt flow. Node `<id>` sends signed fake receipts to `<self>`, loads whatever receipts are stored locally, and tries to spend them when requesting approval for a packet to `<dest>`.
+- `./adversary <id> mutual_collude <dest> <peer> [fake_receipt_cnt]` is for reciprocal fake-credit testing. Run it on both colluding nodes so each side sends fake receipts to the other, then each node submits the peer-issued receipts in its own proof.
 
 ## References
 

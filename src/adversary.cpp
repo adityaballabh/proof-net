@@ -103,40 +103,79 @@ void sendFakeReceipt(unordered_map<int, Node> &nw_config,
                         getReceiptPayload(receipt) + ' ' + receipt.signature);
   sendPacket(RECEIPT_PREFIX + encrypted_receipt, sockfd);
   close(sockfd);
-  cout << "\n[collude] sent fake receipt " << receipt.packet_id << " to node "
-       << peer_id << '\n';
+  cout << "\n[fake_receipt] sent fake receipt " << receipt.packet_id
+       << " to node " << peer_id << '\n';
 }
 
-void runCollusion(unordered_map<int, Node> &nw_config,
-                  map<int, Node> &acct_config,
-                  unordered_map<int, PubKey> &pub_keys,
-                  unordered_map<int, vector<int>> &adj,
-                  unsigned char *pvt_signing, unsigned char *pvt_encryption,
-                  int node_id, int peer_id, int dest, int fake_receipt_cnt) {
+void sendFakeReceiptsSelf(unordered_map<int, Node> &nw_config,
+                          map<int, Node> &acct_config,
+                          unordered_map<int, PubKey> &pub_keys,
+                          unordered_map<int, vector<int>> &adj,
+                          unsigned char *pvt_signing,
+                          unsigned char *pvt_encryption, int node_id,
+                          int peer_id, int dest, int fake_receipt_cnt) {
   for (int i = 0; i < fake_receipt_cnt; i++)
     sendFakeReceipt(nw_config, pub_keys, pvt_signing, node_id, peer_id,
                     MAX_LEN);
 
   sleep(2);
   Proof proof = getProof();
-  cout << "\n[collude] loaded " << proof.receipts.size()
+  cout << "\n[sendFakeReceiptsSelf] loaded " << proof.receipts.size()
        << " exchanged receipts before requesting send approval\n";
 
   AttackMessage message =
-      makeAttackMessage(adj, node_id, dest, "colluding packet");
+      makeAttackMessage(adj, node_id, dest, "self faked packet");
   Packet packet =
       buildPacket(message.route, message.packet_id, message.content, true);
   if (!canSendPacket(acct_config, pub_keys, proof, packet, pvt_encryption,
                      message.packet_id, node_id)) {
-    cout << "[collude] accounting denied packet " << message.packet_id << '\n';
+    cout << "[sendFakeReceiptsSelf] accounting denied packet "
+         << message.packet_id << '\n';
     return;
   }
 
   packet.payload =
       getOnionEncrypted(pub_keys, message.route, packet.salts,
                         packet.signatures, message.packet_id, message.content);
-  cout << "[collude] accounting accepted fake receipts for packet "
+  cout << "[sendFakeReceiptsSelf] accounting accepted fake receipts for packet "
        << message.packet_id << '\n';
+  processPacket(nw_config, pub_keys, packet, pvt_signing, pvt_encryption,
+                node_id, -1);
+}
+
+void runMutualCollusion(unordered_map<int, Node> &nw_config,
+                        map<int, Node> &acct_config,
+                        unordered_map<int, PubKey> &pub_keys,
+                        unordered_map<int, vector<int>> &adj,
+                        unsigned char *pvt_signing,
+                        unsigned char *pvt_encryption, int node_id, int peer_id,
+                        int dest, int fake_receipt_cnt) {
+  for (int i = 0; i < fake_receipt_cnt; i++)
+    sendFakeReceipt(nw_config, pub_keys, pvt_signing, node_id, peer_id,
+                    MAX_LEN);
+
+  sleep(2);
+  Proof proof = getProof();
+  cout << "\n[mutual_collude] loaded " << proof.receipts.size()
+       << " receipts recieved from peers before requesting send approval\n";
+
+  AttackMessage message =
+      makeAttackMessage(adj, node_id, dest, "mutual colluding packet");
+  Packet packet =
+      buildPacket(message.route, message.packet_id, message.content, true);
+  if (!canSendPacket(acct_config, pub_keys, proof, packet, pvt_encryption,
+                     message.packet_id, node_id)) {
+    cout << "[mutual_collude] accounting denied packet " << message.packet_id
+         << endl;
+    return;
+  }
+
+  packet.payload =
+      getOnionEncrypted(pub_keys, message.route, packet.salts,
+                        packet.signatures, message.packet_id, message.content);
+  cout << "[mutual_collude] accounting accepted peer-issued fake receipts for "
+          "packet "
+       << message.packet_id << endl;
   processPacket(nw_config, pub_keys, packet, pvt_signing, pvt_encryption,
                 node_id, -1);
 }
@@ -174,14 +213,24 @@ int main(int argc, char **argv) {
         int count = argc > 4 ? stoi(argv[4]) : 4;
         sendSelfishPackets(nw_config, acct_config, pub_keys, adj, pvt_signing,
                            pvt_encryption, node_id, dest, count);
-      } else if (mode == "collude") {
+      } else if (mode == "sendFakeReceiptsSelf") {
+        if (argc < 4)
+          throw runtime_error("usage: adversary <id> sendFakeReceiptsSelf "
+                              "<dest> [fake_receipt_cnt]");
+        // int peer_id = stoi(argv[4]);
+        int fake_receipt_cnt = argc > 4 ? stoi(argv[4]) : 2;
+        sendFakeReceiptsSelf(nw_config, acct_config, pub_keys, adj, pvt_signing,
+                             pvt_encryption, node_id, node_id, dest,
+                             fake_receipt_cnt);
+      } else if (mode == "mutual_collude") {
         if (argc < 5)
-          throw runtime_error(
-              "usage: adversary <id> collude <dest> <peer> [fake_receipt_cnt]");
+          throw runtime_error("usage: adversary <id> mutual_collude <dest> "
+                              "<peer> [fake_receipt_cnt]");
         int peer_id = stoi(argv[4]);
         int fake_receipt_cnt = argc > 5 ? stoi(argv[5]) : 2;
-        runCollusion(nw_config, acct_config, pub_keys, adj, pvt_signing,
-                     pvt_encryption, node_id, peer_id, dest, fake_receipt_cnt);
+        runMutualCollusion(nw_config, acct_config, pub_keys, adj, pvt_signing,
+                           pvt_encryption, node_id, peer_id, dest,
+                           fake_receipt_cnt);
       } else
         throw runtime_error("unknown mode: " + mode);
       exit(0);
