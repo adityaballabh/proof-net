@@ -697,6 +697,71 @@ Node getBootstrapNode(string path){
     return acct;
 }
 
+string convertReceipt(Receipt receipt){
+    return RECEIPT_PREFIX + ' ' + getReceiptPayload(receipt) + ' ' + receipt.signature;
+}
+
+string convertProof(Proof proof){
+    string proof_str;
+    for(Receipt r : proof.receipts)
+        proof_str += convertReceipt(r) + RECEIPT_DELIM;
+    return proof_str;
+}
+
+Proof getProof(){
+    Proof proof;
+    for(auto file : filesystem::directory_iterator(RECEIPTS_DIR)){
+        ifstream in(file.path());
+        string receipt_str;
+        getline(in, receipt_str);
+        Receipt r;
+        stringstream ss(receipt_str);
+        ss >> r.packet_id >> r.generator >> r.receiver >> r.bytes >> r.signature;
+        proof.receipts.push_back(r);
+        filesystem::remove(file.path());
+    }
+    return proof;
+}
+
+string sendProofWithCommitments(unordered_map<int, PubKey> &pub_keys, Node acct_node, Proof proof, Packet packet, string packet_id){
+    string proof_str, packet_str, encrypted_proof_str;
+    int sockfd = createConnection(acct_node.ip, acct_node.port);
+
+    proof_str = packet_id + convertProof(proof) + RECEIPT_COMMITMENT_DELIM;
+    for(string commitment: packet.commitments)
+        proof_str += ' ' + commitment;
+    encrypted_proof_str = getOnionEncrypted(pub_keys, {acct_node.id}, {}, {}, "", proof_str);
+
+    packet_str = PROOF_PREFIX + encrypted_proof_str;
+    sendPacket(packet_str, sockfd);
+    string acct_resp = getPacket(sockfd);
+    close(sockfd);
+    return acct_resp;
+}
+
+Node getAcctNode(map<int, Node> &acct_config, int node_id){
+    int n = acct_config.size(), ind = node_id % n;
+    auto node_entry = next(acct_config.begin(), ind);
+    return node_entry->second;
+}
+
+bool canSendPacket(map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_keys, Proof proof, Packet &packet, unsigned char* pvt_encryption, string packet_id, int node_id){
+    Node acct_node = getAcctNode(acct_config, node_id);
+    string encrypted_resp = sendProofWithCommitments(pub_keys, acct_node, proof, packet, packet_id);
+    Layer layer = getOnionDecrypted(pub_keys[node_id], pvt_encryption, encrypted_resp, true);
+    string acct_resp = layer.payload;
+    
+    if (acct_resp == ACCT_RESP_PREFIX + NAK_STR)
+        return false;
+
+    stringstream ss(acct_resp);
+    string pref, signature;
+    ss >> pref;
+    while(ss >> signature)
+        packet.signatures.push_back(signature);
+    return true;
+}
+
 void init(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_keys, unordered_map<int, vector<int>> &adj,
           unsigned char* pvt_signing, unsigned char* pvt_encryption, HostType host_type, string nw_config_path, string acct_config_path, int node_id, int argc){
     srand(time(0));
