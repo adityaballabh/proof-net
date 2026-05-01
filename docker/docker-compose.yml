@@ -27,7 +27,7 @@ services:
 
   node2:
     image: proof-net
-    command: /adversary 2 mutual_collude 3 1 2
+    command: /node 2
     depends_on:
       - acct2
     volumes:
@@ -40,7 +40,7 @@ services:
 
   node3:
     image: proof-net
-    command: /node 3
+    command: /adversary 3 selfish_send 1 6
     depends_on:
       - acct0
     volumes:
@@ -66,7 +66,7 @@ services:
 
   node5:
     image: proof-net
-    command: /node 5
+    command: /adversary 5 skip_verify 2
     depends_on:
       - acct2
     volumes:

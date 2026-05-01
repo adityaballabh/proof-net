@@ -26,8 +26,7 @@ vector<pair<Message, Packet>> loadMessages(unordered_map<int, vector<int>> &adj,
     while(getline(in, line)){
         Message message = parseMessage(line);
         message.route = computeRoute(adj, node_id, message.dest);
-        randombytes_buf(msg_id.data(), PACKET_ID_LEN);
-        msg_id = getBase64Encoded((unsigned char*) msg_id.data(), PACKET_ID_LEN);
+        msg_id = generateId(PACKET_ID_LEN);
         cout << "\nscheduled message. prev packet id: " << message.id << ", new packet id: " << msg_id << '\n';
         message.id = msg_id;
 

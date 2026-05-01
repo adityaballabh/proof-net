@@ -762,6 +762,12 @@ bool canSendPacket(map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_
     return true;
 }
 
+string generateId(int len){
+  string raw(len, 0);
+  randombytes_buf(raw.data(), len);
+  return getBase64Encoded((unsigned char *) raw.data(), len);
+}
+
 void init(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_keys, unordered_map<int, vector<int>> &adj,
           unsigned char* pvt_signing, unsigned char* pvt_encryption, HostType host_type, string nw_config_path, string acct_config_path, int node_id, int argc){
     srand(time(0));

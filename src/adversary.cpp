@@ -6,12 +6,6 @@ struct AttackMessage {
   string packet_id;
 };
 
-string getRandomId(int len) {
-  string raw(len, 0);
-  randombytes_buf(raw.data(), len);
-  return getBase64Encoded((unsigned char *)raw.data(), len);
-}
-
 Packet buildPacket(const deque<int> &route, string packet_id, string content,
                    bool use_valid_signatures) {
   Packet packet;
@@ -39,7 +33,7 @@ AttackMessage makeAttackMessage(unordered_map<int, vector<int>> &adj,
   AttackMessage message;
   message.content = content;
   message.route = computeRoute(adj, node_id, dest);
-  message.packet_id = getRandomId(PACKET_ID_LEN);
+  message.packet_id = generateId(PACKET_ID_LEN);
   return message;
 }
 
@@ -94,7 +88,7 @@ void sendFakeReceipt(unordered_map<int, Node> &nw_config,
                      unordered_map<int, PubKey> &pub_keys,
                      unsigned char *pvt_signing, int node_id, int peer_id,
                      int bytes) {
-  Receipt receipt{getRandomId(PACKET_ID_LEN), "", node_id, peer_id, bytes};
+  Receipt receipt{generateId(PACKET_ID_LEN), "", node_id, peer_id, bytes};
   signReceipt(receipt, pvt_signing);
 
   int sockfd = createConnection(nw_config[peer_id].ip, nw_config[peer_id].port);

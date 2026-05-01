@@ -10,60 +10,43 @@ ACCT_BASE_ID = 3000
 ACCT_BASE_PORT = 3000
 
 
-def parse_adversary_spec(spec):
+def parse_adversary_spec(path):
     adversaries = {}
-    if not spec:
+    if not path:
         return adversaries
+    file = Path(path).read_text().splitlines()
 
-    spec_sp = spec.split(";")
-    for raw_entry in spec_sp:
-        entry = raw_entry.strip()
-        if not entry:
+    for entry in file:
+        parts = entry.split()
+        if not entry or entry.startswith("#"):
             continue
 
-        entry_sp = entry.split(":")
-        parts = [part.strip() for part in entry_sp]
-        assert len(parts) >= 3, "invalid spec entry for adversary"
+        assert len(parts) >= 3, f"invalid spec entry for adversary: {entry}"
         try:
             node_id = int(parts[0])
             dest = int(parts[2])
         except Exception:
-            __import__("sys").exit(f"invalid adversary spec entry '{entry}'")
+            sys.exit(f"invalid adversary spec entry: {entry}")
 
-        if node_id and dest:
-            mode = parts[1]
-            extra_args = parts[3:]
+        mode = parts[1]
+        extra_args = parts[3:]
 
-            if mode == "skip_verify":
-                if extra_args:
-                    __import__("sys").exit(
-                        f"invalid adversary spec entry '{entry}': "
-                        "skip_verify only accepts node_id:mode:dest"
-                    )
-            elif mode == "selfish_send":
-                if len(extra_args) > 1:
-                    __import__("sys").exit(
-                        f"invalid adversary spec entry '{entry}': "
-                        "selfish_send accepts at most one optional count"
-                    )
-            elif mode == "sendFakeReceiptsSelf":
-                if len(extra_args) < 1 or len(extra_args) > 2:
-                    __import__("sys").exit(
-                        f"invalid adversary spec entry '{entry}': "
-                        "sendFakeReceiptsSelf requires dest and optional fake_receipt_cnt"
-                    )
-            elif mode == "mutual_collude":
-                if len(extra_args) < 1 or len(extra_args) > 2:
-                    __import__("sys").exit(
-                        f"invalid adversary spec entry '{entry}': "
-                        "mutual_collude requires peer and optional fake_receipt_cnt"
-                    )
-            else:
-                __import__("sys").exit(
-                    f"invalid adversary spec entry '{entry}': unknown mode '{mode}'"
-                )
+        if mode == "skip_verify":
+            if extra_args:
+                sys.exit("skip_verify only accepts: node_id mode dest")
+        elif mode == "selfish_send":
+            if len(extra_args) > 1:
+                sys.exit("selfish_send accepts at most one optional count")
+        elif mode == "sendFakeReceiptsSelf":
+            if len(extra_args) < 1 or len(extra_args) > 2:
+                sys.exit("sendFakeReceiptsSelf requires dest and optional fake_receipt_cnt")
+        elif mode == "mutual_collude":
+            if len(extra_args) < 1 or len(extra_args) > 2:
+                sys.exit("mutual_collude requires peer and optional fake_receipt_cnt")
+        else:
+            sys.exit(f"unknown mode: {mode}")
 
-            adversaries[node_id] = [mode, str(dest), *extra_args]
+        adversaries[node_id] = [mode, str(dest), *extra_args]
 
     return adversaries
 
