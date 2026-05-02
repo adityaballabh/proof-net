@@ -11,7 +11,7 @@ A partially decentralized anonymous network that uses bandwidth contribution pro
 - Source routing with hop length randomization
 - Length-based framing for reliable delivery
 - Topology discovery through bootstrapping
-- Adversarial nodes trying to break fairness by colluding
+- Adversarial nodes trying to break fairness
 
 ## Usage
 `./docker/up.sh [-n node_cnt] [-a acct_cnt] [-c adversarial_config_path]`
