@@ -1,5 +1,5 @@
 # usage: node_id mode dest [rep_cnt]
 # modes: skip_verify, selfish_send, self_receipts, replay
 
-1 replay 4 2
-2 selfish_send 3 5
+1 skip_verify 3
+4 replay 4 2

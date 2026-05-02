@@ -74,6 +74,9 @@ int createConnection(string ip, int port) {
 }
 
 void sendWrapper(char *buf, int sockfd, uint16_t len) {
+    if (len > MAX_LEN)
+        throw runtime_error("send length " + to_string(len) + " exceeds max length " + to_string(MAX_LEN));
+
     int bytes_left = len;
     while (bytes_left) {
         int curr_wr = send(sockfd, buf, bytes_left, 0);
@@ -126,7 +129,9 @@ string getBase64Decoded(string encoded) {
     size_t bin_len;
     if (sodium_base642bin((unsigned char *)bin.data(), bin.size(), encoded.c_str(), encoded.size(), NULL, &bin_len,
                           NULL, sodium_base64_VARIANT_URLSAFE)) {
-        cout << "\nbase64 decoding failed for: " << encoded << '\n';
+        stringstream out;
+        out << "\nbase64 decoding failed for: " << encoded << '\n';
+        cout << out.str();
         return "";
     }
     bin.resize(bin_len);
@@ -370,7 +375,7 @@ void processPacket(unordered_map<int, Node> &nw_config, unordered_map<int, PubKe
 
     int next_hop_id = layer.next_hop;
     if (next_hop_id == INT_MIN) {
-        cout << "\ndecryption failed for packet" << '\n';
+        cout << "\ndecryption failed for packet\n";
         return;
     }
     string packet_id = layer.id, prev_pkt;
@@ -382,7 +387,9 @@ void processPacket(unordered_map<int, Node> &nw_config, unordered_map<int, PubKe
     while (prev_pkts_in >> prev_pkt)
         prev_pkts.insert(prev_pkt);
     if (prev_pkts.count(packet_id)) {
-        cout << "\n duplicate packet id: " << packet_id << ". dropping packet\n";
+        stringstream out;
+        out << "\nduplicate packet id: " << packet_id << ". dropping packet\n";
+        cout << out.str();
         return;
     }
 
@@ -392,7 +399,9 @@ void processPacket(unordered_map<int, Node> &nw_config, unordered_map<int, PubKe
                                                  msg.size(), acct_pub_key.signing);
 
     if (!is_valid) {
-        cout << "\nsignature verification failed for packet " + packet_id << ". dropping packet\n";
+        stringstream out;
+        out << "\nsignature verification failed for packet " << packet_id << ". dropping packet\n";
+        cout << out.str();
         return;
     }
 
@@ -412,7 +421,9 @@ void processPacket(unordered_map<int, Node> &nw_config, unordered_map<int, PubKe
     }
 
     if (next_hop_id == -1) {
-        cout << "\npacket reached destination: " + packet_id + ' ' + payload << '\n';
+        stringstream out;
+        out << "\npacket reached destination: " << packet_id << ' ' << payload << '\n';
+        cout << out.str();
         return;
     } else if (!nw_config.count(next_hop_id))
         throw runtime_error("invalid next hop");
@@ -436,10 +447,11 @@ bool canSend(Proof proof, unordered_map<int, PubKey> &pub_keys, string packet_id
     // skip future receipts for this packet at origin
     node_state.receipt_ids.insert(packet_id);
 
-    int max_used = node_state.used + MAX_LEN, thresh = node_state.forwarded * 2 + INIT_ALLOWED;
-    cout << "\n"
-         << "node" << node << " used: " << max_used << " forwarded: " << node_state.forwarded
-         << " threshold: " << thresh;
+    int max_used = node_state.used + MAX_LEN, thresh = node_state.forwarded * FORWARDING_MULT + INIT_ALLOWED;
+    stringstream out;
+    out << "\nnode" << node << " used: " << max_used << " forwarded: " << node_state.forwarded
+        << " threshold: " << thresh;
+    cout << out.str();
     if (max_used <= thresh) {
         node_state.used += MAX_LEN;
         node_state.allowed = true;
@@ -465,7 +477,9 @@ Proof parseProof(string proof_str) {
 
 void setNAK(string &acct_resp, int prev_node) {
     acct_resp += NAK_STR;
-    cout << "\ndenied send for " << prev_node << '\n';
+    stringstream out;
+    out << "\ndenied send for " << prev_node << '\n';
+    cout << out.str();
 }
 
 bool isCorrectAcct(map<int, Node> &acct_config, int acct_id, int node_id) {
@@ -504,7 +518,9 @@ void handleProof(map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_ke
 
         if (!receipts_str.empty()) {
             proof = parseProof(receipts_str);
-            cout << "\nproof " << receipts_str;
+            stringstream out;
+            out << "\nproof " << receipts_str;
+            cout << out.str();
         } else
             cout << "\nno receipts found in proof";
 
@@ -513,7 +529,9 @@ void handleProof(map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_ke
         while (ss >> commitment)
             commitments.push_back(commitment);
     } catch (exception &e) {
-        cout << "\nerror while decrypting proof:" << e.what() << "\ndefaulting to initial forwarded value.\n";
+        stringstream out;
+        out << "\nerror while decrypting proof:" << e.what() << "\ndefaulting to initial forwarded value.\n";
+        cout << out.str();
     }
 
     string acct_resp = ACCT_RESP_PREFIX;
@@ -537,7 +555,7 @@ void handleProof(map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_ke
 }
 
 void handleBootstrapReq(unordered_map<int, Node> &nw_config, unordered_map<int, vector<int>> &adj, int sockfd) {
-    ostringstream out;
+    stringstream out;
     int node_cnt = nw_config.size();
     out << BOOTSTRAP_RESP_PREFIX << ' ' << node_cnt;
 
@@ -603,10 +621,12 @@ void processConnections(unordered_map<int, Node> &nw_config, map<int, Node> &acc
             close(sockfd);
             string packet_str = getPacket(new_fd);
             int prev_node = getNodeID(nw_config, acct_config, their_addr);
-            cout << "\nreceived";
+            stringstream out;
+            out << "\nreceived";
             if (prev_node != -1)
-                cout << " from " << prev_node;
-            cout << ": " << packet_str << '\n';
+                out << " from " << prev_node;
+            out << ": " << packet_str << '\n';
+            cout << out.str();
 
             if (packet_str.substr(0, RECEIPT_PREFIX.size()) == RECEIPT_PREFIX) {
                 if (host_type == HostType::Node) {

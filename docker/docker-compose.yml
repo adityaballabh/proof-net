@@ -14,7 +14,7 @@ services:
 
   node1:
     image: proof-net
-    command: /adversary 1 replay 4 2
+    command: /adversary 1 skip_verify 3
     depends_on:
       - acct1
     volumes:
@@ -27,7 +27,7 @@ services:
 
   node2:
     image: proof-net
-    command: /adversary 2 selfish_send 3 5
+    command: /node 2
     depends_on:
       - acct2
     volumes:
@@ -53,7 +53,7 @@ services:
 
   node4:
     image: proof-net
-    command: /node 4
+    command: /adversary 4 replay 4 2
     depends_on:
       - acct1
     volumes:

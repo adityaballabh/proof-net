@@ -28,6 +28,11 @@ Example: [docker/adversarial_config.txt](docker/adversarial_config.txt)
 
 ProofNet prevents these attacks. However, it is susceptible to colluding nodes exchanging fake receipts with each other.
 
+## Sample Logs
+
+- Without adversarial nodes: [sample-logs/non_adversarial.log](sample-logs/non_adversarial.log)
+- With adversarial nodes: [sample-logs/adversarial.log](sample-logs/adversarial.log)
+
 ## References
 
 [Beej's Guide](https://beej.us/guide/bgnet/pdf/bgnet_usl_c_1.pdf)

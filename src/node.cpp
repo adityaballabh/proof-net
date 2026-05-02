@@ -27,13 +27,16 @@ vector<pair<Message, Packet>> loadMessages(unordered_map<int, vector<int>> &adj,
         Message message = parseMessage(line);
         message.route = computeRoute(adj, node_id, message.dest);
         msg_id = generateId(PACKET_ID_LEN);
-        cout << "\nscheduled message. prev packet id: " << message.id << ", new packet id: " << msg_id << '\n';
+        stringstream ss_sched;
+        ss_sched << "\nscheduled message. prev packet id: " << message.id << ", new packet id: " << msg_id << '\n';
+        cout << ss_sched.str();
         message.id = msg_id;
 
         Packet packet;
-        cout << "computed route: ";
+        stringstream ss_route;
+        ss_route << "computed route: ";
         for (int hop : message.route) {
-            cout << hop << ' ';
+            ss_route << hop << ' ';
             randombytes_buf(salt.data(), SALT_LEN);
             string hash_out = getHash(salt, hop);
             packet.salts.push_back(salt);
@@ -41,9 +44,12 @@ vector<pair<Message, Packet>> loadMessages(unordered_map<int, vector<int>> &adj,
             string enc_hash = getBase64Encoded((unsigned char *)hash_out.data(), crypto_hash_sha256_BYTES);
             packet.commitments.push_back(enc_hash);
         }
+        cout << ss_route.str();
 
         msg_pkt_pairs.push_back({message, packet});
-        cout << "\ndelay: " << message.delay << "s message: " << line << '\n';
+        stringstream ss_delay;
+        ss_delay << "\ndelay: " << message.delay << "s message: " << line << '\n';
+        cout << ss_delay.str();
         delays.push_back(message.delay);
     }
     return msg_pkt_pairs;
@@ -52,13 +58,17 @@ vector<pair<Message, Packet>> loadMessages(unordered_map<int, vector<int>> &adj,
 void validateAndSendPacket(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config,
                            unordered_map<int, PubKey> &pub_keys, Proof proof, Message message, Packet packet,
                            unsigned char *pvt_signing, unsigned char *pvt_encryption, int node_id) {
+    stringstream out;
     if (canSendPacket(acct_config, pub_keys, proof, packet, pvt_encryption, message.id, node_id)) {
         packet.payload =
             getOnionEncrypted(pub_keys, message.route, packet.salts, packet.signatures, message.id, message.content);
-        cout << "\nsending packet " << message.id << '\n';
+        out << "\nsending packet " << message.id << '\n';
+        cout << out.str();
         processPacket(nw_config, pub_keys, packet, pvt_signing, pvt_encryption, node_id, -1);
-    } else
-        cout << "\nsend was denied for packet " << message.id << '\n';
+    } else {
+        out << "\nsend was denied for packet " << message.id << '\n';
+        cout << out.str();
+    }
 }
 
 int main(int argc, char **argv) {

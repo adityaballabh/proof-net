@@ -38,7 +38,9 @@ void sendAttackPacket(unordered_map<int, Node> &nw_config, unordered_map<int, Pu
                       const AttackMessage &message, Packet &packet, const string &mode) {
     packet.payload =
         getOnionEncrypted(pub_keys, message.route, packet.salts, packet.signatures, message.packet_id, message.content);
-    cout << "\n[" << mode << "] sending packet " << message.packet_id << '\n';
+    stringstream out;
+    out << "\n[" << mode << "] sending packet " << message.packet_id << '\n';
+    cout << out.str();
 
     processPacket(nw_config, pub_keys, packet, pvt_signing, pvt_encryption, node_id, -1);
     sleep(DEFAULT_SLEEP_SEC);
@@ -70,7 +72,9 @@ void sendFakeReceipt(unordered_map<int, Node> &nw_config, unordered_map<int, Pub
         getOnionEncrypted(pub_keys, {peer_id}, {}, {}, "", getReceiptPayload(receipt) + ' ' + receipt.signature);
     sendPacket(RECEIPT_PREFIX + encrypted_receipt, sockfd);
     close(sockfd);
-    cout << "\n[" << mode << "] sent fake receipt " << receipt.packet_id << " to node " << peer_id << '\n';
+    stringstream out;
+    out << "\n[" << mode << "] sent fake receipt " << receipt.packet_id << " to node " << peer_id << '\n';
+    cout << out.str();
 }
 
 string sendAttackPacketIfApproved(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config,
@@ -84,7 +88,9 @@ string sendAttackPacketIfApproved(unordered_map<int, Node> &nw_config, map<int, 
 
     Packet packet = buildPacket(message.route, true);
     if (!canSendPacket(acct_config, pub_keys, proof, packet, pvt_encryption, message.packet_id, node_id)) {
-        cout << "[" << mode << "] acct denied packet " << message.packet_id << '\n';
+        stringstream out;
+        out << "[" << mode << "] acct denied packet " << message.packet_id << '\n';
+        cout << out.str();
         return "";
     }
 
@@ -97,7 +103,9 @@ void sendSelfishPackets(unordered_map<int, Node> &nw_config, map<int, Node> &acc
                         unsigned char *pvt_signing, unsigned char *pvt_encryption, int node_id, int dest, int count,
                         string mode) {
     for (int i = 0; i < count; i++) {
-        cout << "\n[" << mode << "] attempt " << i << '\n';
+        stringstream out;
+        out << "\n[" << mode << "] attempt " << i << '\n';
+        cout << out.str();
         sendAttackPacketIfApproved(nw_config, acct_config, pub_keys, adj, pvt_signing, pvt_encryption, node_id, dest,
                                    {}, mode, i);
     }
@@ -112,7 +120,9 @@ void sendSelfIssuedReceipts(unordered_map<int, Node> &nw_config, map<int, Node> 
     sleep(DEFAULT_SLEEP_SEC);
 
     Proof proof = getProof();
-    cout << "\n[" << mode << "] loaded " << proof.receipts.size() << " self-issued receipts\n";
+    stringstream out;
+    out << "\n[" << mode << "] loaded " << proof.receipts.size() << " self-issued receipts\n";
+    cout << out.str();
     sendAttackPacketIfApproved(nw_config, acct_config, pub_keys, adj, pvt_signing, pvt_encryption, node_id, dest, proof,
                                mode);
 }
@@ -122,6 +132,7 @@ void sendReplayPackets(unordered_map<int, Node> &nw_config, map<int, Node> &acct
                        unsigned char *pvt_signing, unsigned char *pvt_encryption, int node_id, int dest, int rep_cnt,
                        string mode) {
     vector<string> packet_ids;
+    // initial non-malicious sends
     for (int i = 0; i < rep_cnt; i++) {
         string packet_id = sendAttackPacketIfApproved(nw_config, acct_config, pub_keys, adj, pvt_signing,
                                                       pvt_encryption, node_id, dest, {}, mode + "_honest", i);
@@ -130,11 +141,15 @@ void sendReplayPackets(unordered_map<int, Node> &nw_config, map<int, Node> &acct
     }
 
     if (packet_ids.empty()) {
-        cout << "\n[" << mode << "] no packet ids to replay\n";
+        stringstream out;
+        out << "\n[" << mode << "] no packet ids to replay\n";
+        cout << out.str();
         return;
     }
 
-    cout << "\n[" << mode << "] replaying " << packet_ids.size() << " packet ids\n";
+    stringstream out;
+    out << "\n[" << mode << "] replaying " << packet_ids.size() << " packet ids\n";
+    cout << out.str();
     for (int i = 0; i < packet_ids.size(); i++)
         sendAttackPacketIfApproved(nw_config, acct_config, pub_keys, adj, pvt_signing, pvt_encryption, node_id, dest,
                                    {}, mode, i, packet_ids[i]);
