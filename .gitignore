@@ -8,3 +8,4 @@ keys
 receipts
 state
 logs
+__pycache__

@@ -1,244 +1,203 @@
 #include "utils.h"
 
 struct AttackMessage {
-  string content;
-  deque<int> route;
-  string packet_id;
+    string content;
+    deque<int> route;
+    string packet_id;
 };
 
-string getRandomId(int len) {
-  string raw(len, 0);
-  randombytes_buf(raw.data(), len);
-  return getBase64Encoded((unsigned char *)raw.data(), len);
-}
+Packet buildPacket(const deque<int> &route, bool use_valid_signatures) {
+    Packet packet;
+    string salt(SALT_LEN, 0);
+    for (int hop : route) {
+        randombytes_buf(salt.data(), SALT_LEN);
+        packet.salts.push_back(salt);
 
-Packet buildPacket(const deque<int> &route, string packet_id, string content,
-                   bool use_valid_signatures) {
-  Packet packet;
-  string salt(SALT_LEN, 0);
-  for (int hop : route) {
-    randombytes_buf(salt.data(), SALT_LEN);
-    packet.salts.push_back(salt);
+        string hash_out = getHash(salt, hop);
+        packet.commitments.push_back(getBase64Encoded((unsigned char *)hash_out.data(), crypto_hash_sha256_BYTES));
 
-    string hash_out = getHash(salt, hop);
-    packet.commitments.push_back(getBase64Encoded(
-        (unsigned char *)hash_out.data(), crypto_hash_sha256_BYTES));
-
-    if (!use_valid_signatures) {
-      string bogus_sig(crypto_sign_BYTES, 0);
-      randombytes_buf(bogus_sig.data(), crypto_sign_BYTES);
-      packet.signatures.push_back(getBase64Encoded(
-          (unsigned char *)bogus_sig.data(), crypto_sign_BYTES));
+        if (!use_valid_signatures) {
+            string bogus_sig(crypto_sign_BYTES, 0);
+            randombytes_buf(bogus_sig.data(), crypto_sign_BYTES);
+            packet.signatures.push_back(getBase64Encoded((unsigned char *)bogus_sig.data(), crypto_sign_BYTES));
+        }
     }
-  }
-  return packet;
+    return packet;
 }
 
-AttackMessage makeAttackMessage(unordered_map<int, vector<int>> &adj,
-                                int node_id, int dest, string content) {
-  AttackMessage message;
-  message.content = content;
-  message.route = computeRoute(adj, node_id, dest);
-  message.packet_id = getRandomId(PACKET_ID_LEN);
-  return message;
+AttackMessage makeAttackMessage(unordered_map<int, vector<int>> &adj, int node_id, int dest, string content) {
+    AttackMessage message;
+    message.content = content;
+    message.route = computeRoute(adj, node_id, dest);
+    message.packet_id = generateId(PACKET_ID_LEN);
+    return message;
 }
 
-void sendPacketWithoutAcct(unordered_map<int, Node> &nw_config,
-                           unordered_map<int, PubKey> &pub_keys,
-                           unsigned char *pvt_signing,
-                           unsigned char *pvt_encryption, int node_id,
-                           const AttackMessage &message) {
-  Packet packet =
-      buildPacket(message.route, message.packet_id, message.content, false);
-  packet.payload =
-      getOnionEncrypted(pub_keys, message.route, packet.salts,
-                        packet.signatures, message.packet_id, message.content);
-  cout << "\n[skip_verify] sending packet " << message.packet_id
-       << " without accounting approval\n";
-  processPacket(nw_config, pub_keys, packet, pvt_signing, pvt_encryption,
-                node_id, -1);
+void sendAttackPacket(unordered_map<int, Node> &nw_config, unordered_map<int, PubKey> &pub_keys,
+                      unsigned char *pvt_signing, unsigned char *pvt_encryption, int node_id,
+                      const AttackMessage &message, Packet &packet, const string &mode) {
+    packet.payload =
+        getOnionEncrypted(pub_keys, message.route, packet.salts, packet.signatures, message.packet_id, message.content);
+    stringstream out;
+    out << "\n[" << mode << "] sending packet " << message.packet_id << '\n';
+    cout << out.str();
+
+    processPacket(nw_config, pub_keys, packet, pvt_signing, pvt_encryption, node_id, -1);
+    sleep(DEFAULT_SLEEP_SEC);
 }
 
-void sendSelfishPackets(unordered_map<int, Node> &nw_config,
-                        map<int, Node> &acct_config,
-                        unordered_map<int, PubKey> &pub_keys,
-                        unordered_map<int, vector<int>> &adj,
-                        unsigned char *pvt_signing,
-                        unsigned char *pvt_encryption, int node_id, int dest,
-                        int count) {
-  for (int i = 0; i < count; i++) {
-    AttackMessage message =
-        makeAttackMessage(adj, node_id, dest, "selfish packet " + to_string(i));
-    Packet packet =
-        buildPacket(message.route, message.packet_id, message.content, true);
+void sendPacketWithoutAcct(unordered_map<int, Node> &nw_config, unordered_map<int, PubKey> &pub_keys,
+                           unsigned char *pvt_signing, unsigned char *pvt_encryption, int node_id,
+                           const AttackMessage &message, string mode) {
+    Packet packet = buildPacket(message.route, false);
+    sendAttackPacket(nw_config, pub_keys, pvt_signing, pvt_encryption, node_id, message, packet, mode);
+}
 
-    cout << "\n[selfish_send] attempt " << (i + 1) << " packet "
-         << message.packet_id << '\n';
-    if (!canSendPacket(acct_config, pub_keys, {}, packet, pvt_encryption,
-                       message.packet_id, node_id)) {
-      cout << "[selfish_send] accounting denied packet " << message.packet_id
-           << '\n';
-      continue;
+void sendSkipVerifyPackets(unordered_map<int, Node> &nw_config, unordered_map<int, PubKey> &pub_keys,
+                           unordered_map<int, vector<int>> &adj, unsigned char *pvt_signing,
+                           unsigned char *pvt_encryption, int node_id, int dest, int rep_cnt, string mode) {
+    for (int i = 0; i < rep_cnt; i++) {
+        AttackMessage message = makeAttackMessage(adj, node_id, dest, mode + to_string(i));
+        sendPacketWithoutAcct(nw_config, pub_keys, pvt_signing, pvt_encryption, node_id, message, mode);
+    }
+}
+
+void sendFakeReceipt(unordered_map<int, Node> &nw_config, unordered_map<int, PubKey> &pub_keys,
+                     unsigned char *pvt_signing, int node_id, int peer_id, int bytes, string mode) {
+    Receipt receipt{generateId(PACKET_ID_LEN), "", node_id, peer_id, bytes};
+    signReceipt(receipt, pvt_signing);
+
+    int sockfd = createConnection(nw_config[peer_id].ip, nw_config[peer_id].port);
+    string encrypted_receipt =
+        getOnionEncrypted(pub_keys, {peer_id}, {}, {}, "", getReceiptPayload(receipt) + ' ' + receipt.signature);
+    sendPacket(RECEIPT_PREFIX + encrypted_receipt, sockfd);
+    close(sockfd);
+    stringstream out;
+    out << "\n[" << mode << "] sent fake receipt " << receipt.packet_id << " to node " << peer_id << '\n';
+    cout << out.str();
+}
+
+string sendAttackPacketIfApproved(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config,
+                                  unordered_map<int, PubKey> &pub_keys, unordered_map<int, vector<int>> &adj,
+                                  unsigned char *pvt_signing, unsigned char *pvt_encryption, int node_id, int dest,
+                                  Proof proof, string mode, int attempt = 0, string packet_id = "") {
+    string content = mode + to_string(attempt);
+    AttackMessage message = makeAttackMessage(adj, node_id, dest, content);
+    if (!packet_id.empty())
+        message.packet_id = packet_id;
+
+    Packet packet = buildPacket(message.route, true);
+    if (!canSendPacket(acct_config, pub_keys, proof, packet, pvt_encryption, message.packet_id, node_id)) {
+        stringstream out;
+        out << "[" << mode << "] acct denied packet " << message.packet_id << '\n';
+        cout << out.str();
+        return "";
     }
 
-    packet.payload = getOnionEncrypted(pub_keys, message.route, packet.salts,
-                                       packet.signatures, message.packet_id,
-                                       message.content);
-    processPacket(nw_config, pub_keys, packet, pvt_signing, pvt_encryption,
-                  node_id, -1);
-    sleep(1);
-  }
+    sendAttackPacket(nw_config, pub_keys, pvt_signing, pvt_encryption, node_id, message, packet, mode);
+    return message.packet_id;
 }
 
-void sendFakeReceipt(unordered_map<int, Node> &nw_config,
-                     unordered_map<int, PubKey> &pub_keys,
-                     unsigned char *pvt_signing, int node_id, int peer_id,
-                     int bytes) {
-  Receipt receipt{getRandomId(PACKET_ID_LEN), "", node_id, peer_id, bytes};
-  signReceipt(receipt, pvt_signing);
-
-  int sockfd = createConnection(nw_config[peer_id].ip, nw_config[peer_id].port);
-  string encrypted_receipt =
-      getOnionEncrypted(pub_keys, {peer_id}, {}, {}, "",
-                        getReceiptPayload(receipt) + ' ' + receipt.signature);
-  sendPacket(RECEIPT_PREFIX + encrypted_receipt, sockfd);
-  close(sockfd);
-  cout << "\n[fake_receipt] sent fake receipt " << receipt.packet_id
-       << " to node " << peer_id << '\n';
+void sendSelfishPackets(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config,
+                        unordered_map<int, PubKey> &pub_keys, unordered_map<int, vector<int>> &adj,
+                        unsigned char *pvt_signing, unsigned char *pvt_encryption, int node_id, int dest, int count,
+                        string mode) {
+    for (int i = 0; i < count; i++) {
+        stringstream out;
+        out << "\n[" << mode << "] attempt " << i << '\n';
+        cout << out.str();
+        sendAttackPacketIfApproved(nw_config, acct_config, pub_keys, adj, pvt_signing, pvt_encryption, node_id, dest,
+                                   {}, mode, i);
+    }
 }
 
-void sendFakeReceiptsSelf(unordered_map<int, Node> &nw_config,
-                          map<int, Node> &acct_config,
-                          unordered_map<int, PubKey> &pub_keys,
-                          unordered_map<int, vector<int>> &adj,
-                          unsigned char *pvt_signing,
-                          unsigned char *pvt_encryption, int node_id,
-                          int peer_id, int dest, int fake_receipt_cnt) {
-  for (int i = 0; i < fake_receipt_cnt; i++)
-    sendFakeReceipt(nw_config, pub_keys, pvt_signing, node_id, peer_id,
-                    MAX_LEN);
+void sendSelfIssuedReceipts(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config,
+                            unordered_map<int, PubKey> &pub_keys, unordered_map<int, vector<int>> &adj,
+                            unsigned char *pvt_signing, unsigned char *pvt_encryption, int node_id, int dest,
+                            int rep_cnt, string mode) {
+    for (int i = 0; i < rep_cnt; i++)
+        sendFakeReceipt(nw_config, pub_keys, pvt_signing, node_id, node_id, MAX_LEN, mode);
+    sleep(DEFAULT_SLEEP_SEC);
 
-  sleep(2);
-  Proof proof = getProof();
-  cout << "\n[sendFakeReceiptsSelf] loaded " << proof.receipts.size()
-       << " exchanged receipts before requesting send approval\n";
-
-  AttackMessage message =
-      makeAttackMessage(adj, node_id, dest, "self faked packet");
-  Packet packet =
-      buildPacket(message.route, message.packet_id, message.content, true);
-  if (!canSendPacket(acct_config, pub_keys, proof, packet, pvt_encryption,
-                     message.packet_id, node_id)) {
-    cout << "[sendFakeReceiptsSelf] accounting denied packet "
-         << message.packet_id << '\n';
-    return;
-  }
-
-  packet.payload =
-      getOnionEncrypted(pub_keys, message.route, packet.salts,
-                        packet.signatures, message.packet_id, message.content);
-  cout << "[sendFakeReceiptsSelf] accounting accepted fake receipts for packet "
-       << message.packet_id << '\n';
-  processPacket(nw_config, pub_keys, packet, pvt_signing, pvt_encryption,
-                node_id, -1);
+    Proof proof = getProof();
+    stringstream out;
+    out << "\n[" << mode << "] loaded " << proof.receipts.size() << " self-issued receipts\n";
+    cout << out.str();
+    sendAttackPacketIfApproved(nw_config, acct_config, pub_keys, adj, pvt_signing, pvt_encryption, node_id, dest, proof,
+                               mode);
 }
 
-void runMutualCollusion(unordered_map<int, Node> &nw_config,
-                        map<int, Node> &acct_config,
-                        unordered_map<int, PubKey> &pub_keys,
-                        unordered_map<int, vector<int>> &adj,
-                        unsigned char *pvt_signing,
-                        unsigned char *pvt_encryption, int node_id, int peer_id,
-                        int dest, int fake_receipt_cnt) {
-  for (int i = 0; i < fake_receipt_cnt; i++)
-    sendFakeReceipt(nw_config, pub_keys, pvt_signing, node_id, peer_id,
-                    MAX_LEN);
+void sendReplayPackets(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config,
+                       unordered_map<int, PubKey> &pub_keys, unordered_map<int, vector<int>> &adj,
+                       unsigned char *pvt_signing, unsigned char *pvt_encryption, int node_id, int dest, int rep_cnt,
+                       string mode) {
+    vector<string> packet_ids;
+    // initial non-malicious sends
+    for (int i = 0; i < rep_cnt; i++) {
+        string packet_id = sendAttackPacketIfApproved(nw_config, acct_config, pub_keys, adj, pvt_signing,
+                                                      pvt_encryption, node_id, dest, {}, mode + "_honest", i);
+        if (!packet_id.empty())
+            packet_ids.push_back(packet_id);
+    }
 
-  sleep(2);
-  Proof proof = getProof();
-  cout << "\n[mutual_collude] loaded " << proof.receipts.size()
-       << " receipts recieved from peers before requesting send approval\n";
+    if (packet_ids.empty()) {
+        stringstream out;
+        out << "\n[" << mode << "] no packet ids to replay\n";
+        cout << out.str();
+        return;
+    }
 
-  AttackMessage message =
-      makeAttackMessage(adj, node_id, dest, "mutual colluding packet");
-  Packet packet =
-      buildPacket(message.route, message.packet_id, message.content, true);
-  if (!canSendPacket(acct_config, pub_keys, proof, packet, pvt_encryption,
-                     message.packet_id, node_id)) {
-    cout << "[mutual_collude] accounting denied packet " << message.packet_id
-         << endl;
-    return;
-  }
-
-  packet.payload =
-      getOnionEncrypted(pub_keys, message.route, packet.salts,
-                        packet.signatures, message.packet_id, message.content);
-  cout << "[mutual_collude] accounting accepted peer-issued fake receipts for "
-          "packet "
-       << message.packet_id << endl;
-  processPacket(nw_config, pub_keys, packet, pvt_signing, pvt_encryption,
-                node_id, -1);
+    stringstream out;
+    out << "\n[" << mode << "] replaying " << packet_ids.size() << " packet ids\n";
+    cout << out.str();
+    for (int i = 0; i < packet_ids.size(); i++)
+        sendAttackPacketIfApproved(nw_config, acct_config, pub_keys, adj, pvt_signing, pvt_encryption, node_id, dest,
+                                   {}, mode, i, packet_ids[i]);
 }
 
 int main(int argc, char **argv) {
-  map<int, Node> acct_config;
-  unordered_map<int, Node> nw_config;
-  unordered_map<int, vector<int>> adj;
-  unordered_map<int, PubKey> pub_keys;
-  unsigned char pvt_signing[crypto_sign_ed25519_SECRETKEYBYTES],
-      pvt_encryption[crypto_box_SECRETKEYBYTES];
-  HostType host_type = HostType::Node;
-  cout << unitbuf;
+    map<int, Node> acct_config;
+    unordered_map<int, Node> nw_config;
+    unordered_map<int, vector<int>> adj;
+    unordered_map<int, PubKey> pub_keys;
+    unsigned char pvt_signing[crypto_sign_ed25519_SECRETKEYBYTES], pvt_encryption[crypto_box_SECRETKEYBYTES];
+    HostType host_type = HostType::Node;
+    cout << unitbuf;
 
-  try {
-    if (argc < 4)
-      throw runtime_error("usage: adversary <id> <mode> <dest> [count|peer]");
+    try {
+        if (argc < 4 || argc > 5)
+            throw runtime_error("usage: adversary <id> <mode> <dest> [rep_cnt]");
 
-    int node_id = stoi(argv[1]), sockfd, dest = stoi(argv[3]);
-    string mode = argv[2];
-    init(nw_config, acct_config, pub_keys, adj, pvt_signing, pvt_encryption,
-         host_type, "", BOOTSTRAP_CONFIG_PATH, node_id, 2);
-    sockfd = createServer(nw_config[node_id].port);
+        int node_id = stoi(argv[1]), sockfd, dest = stoi(argv[3]);
+        string mode = argv[2];
+        init(nw_config, acct_config, pub_keys, adj, pvt_signing, pvt_encryption, host_type, "", BOOTSTRAP_CONFIG_PATH,
+             2);
+        sockfd = createServer(nw_config[node_id].port);
 
-    if (!fork()) {
-      sleep(2);
-      close(sockfd);
-
-      if (mode == "skip_verify") {
-        AttackMessage message =
-            makeAttackMessage(adj, node_id, dest, "skip verification");
-        sendPacketWithoutAcct(nw_config, pub_keys, pvt_signing, pvt_encryption,
-                              node_id, message);
-      } else if (mode == "selfish_send") {
-        int count = argc > 4 ? stoi(argv[4]) : 4;
-        sendSelfishPackets(nw_config, acct_config, pub_keys, adj, pvt_signing,
-                           pvt_encryption, node_id, dest, count);
-      } else if (mode == "sendFakeReceiptsSelf") {
-        if (argc < 4)
-          throw runtime_error("usage: adversary <id> sendFakeReceiptsSelf "
-                              "<dest> [fake_receipt_cnt]");
-        // int peer_id = stoi(argv[4]);
-        int fake_receipt_cnt = argc > 4 ? stoi(argv[4]) : 2;
-        sendFakeReceiptsSelf(nw_config, acct_config, pub_keys, adj, pvt_signing,
-                             pvt_encryption, node_id, node_id, dest,
-                             fake_receipt_cnt);
-      } else if (mode == "mutual_collude") {
-        if (argc < 5)
-          throw runtime_error("usage: adversary <id> mutual_collude <dest> "
-                              "<peer> [fake_receipt_cnt]");
-        int peer_id = stoi(argv[4]);
-        int fake_receipt_cnt = argc > 5 ? stoi(argv[5]) : 2;
-        runMutualCollusion(nw_config, acct_config, pub_keys, adj, pvt_signing,
-                           pvt_encryption, node_id, peer_id, dest,
-                           fake_receipt_cnt);
-      } else
-        throw runtime_error("unknown mode: " + mode);
-      exit(0);
+        if (!fork()) {
+            sleep(DEFAULT_SLEEP_SEC);
+            close(sockfd);
+            int rep_cnt = argc == 5 ? stoi(argv[4]) : DEFAULT_REP_CNT;
+            if (mode == SKIP_VERIFY)
+                sendSkipVerifyPackets(nw_config, pub_keys, adj, pvt_signing, pvt_encryption, node_id, dest, rep_cnt,
+                                      mode);
+            else if (mode == SELFISH_SEND)
+                sendSelfishPackets(nw_config, acct_config, pub_keys, adj, pvt_signing, pvt_encryption, node_id, dest,
+                                   rep_cnt, mode);
+            else if (mode == SELF_RECEIPTS)
+                sendSelfIssuedReceipts(nw_config, acct_config, pub_keys, adj, pvt_signing, pvt_encryption, node_id,
+                                       dest, rep_cnt, mode);
+            else if (mode == REPLAY)
+                sendReplayPackets(nw_config, acct_config, pub_keys, adj, pvt_signing, pvt_encryption, node_id, dest,
+                                  rep_cnt, mode);
+            else
+                throw runtime_error("unknown mode: " + mode);
+            exit(0);
+        }
+        processConnections(nw_config, acct_config, pub_keys, adj, pvt_signing, pvt_encryption, sockfd, node_id,
+                           host_type);
+    } catch (exception &e) {
+        cerr << e.what() << '\n';
+        return 1;
     }
-    processConnections(nw_config, acct_config, pub_keys, adj, pvt_signing,
-                       pvt_encryption, sockfd, node_id, host_type);
-  } catch (exception &e) {
-    cerr << e.what() << '\n';
-    return 1;
-  }
 }

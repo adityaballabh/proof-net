@@ -2,7 +2,7 @@
 
 A partially decentralized anonymous network that uses bandwidth contribution proofs to achieve fairness while preserving privacy.
 
-## Key Features
+## Overview
 
 - Onion routing
 - Next hop sends signed receipts for bandwidth contributions
@@ -11,38 +11,27 @@ A partially decentralized anonymous network that uses bandwidth contribution pro
 - Source routing with hop length randomization
 - Length-based framing for reliable delivery
 - Topology discovery through bootstrapping
+- Adversarial nodes try to break fairness
 
 ## Usage
 
-`./docker/up.sh [node_cnt] [acct_cnt]`
+`./docker/up.sh [-n node_cnt] [-a acct_cnt] [-c adversarial_config_path]`
 
-For adversarial testing, we use up.sh and pass in the spec (there's exmaple below, basically will replace node n with adversarial behavior):
-`./docker/up.sh [node_cnt] [acct_cnt] [adversary_spec]`
+## Adversarial Modes
 
-`adversary_spec` is a semicolon-separated list of nodes to run as `/adversary` instead of `/node`:
+- skip_verify: Send without valid accounting signatures
+- selfish_send: Send without receipts
+- self_receipts: Send using self-issued receipts
+- replay: Send using old packet ids
 
-- `node_id:skip_verify:dest`
-- `node_id:selfish_send:dest[:count]`
-- `node_id:collude:dest:peer[:fake_receipt_cnt]`
-- `node_id:mutual_collude:dest:peer[:fake_receipt_cnt]`
+Example: [docker/adversarial_config.txt](docker/adversarial_config.txt)
 
-## Adversarial Testing
+ProofNet prevents these attacks. However, it is susceptible to colluding nodes exchanging fake receipts with each other.
 
-We run adversarial nodes through Docker by passing an `adversary_spec` to `up.sh`. Any node not listed still runs as a normal `/node`.
+## Sample Logs
 
-Examples:
-
-- `./docker/up.sh 7 3 '2:skip_verify:1'`
-- `./docker/up.sh 7 3 '2:selfish_send:1:6'`
-- `./docker/up.sh 7 3 '2:sendFakeReceiptsSelf:1:2'`
-- `./docker/up.sh 7 3 '1:mutual_collude:3:2:2;2:mutual_collude:3:1:2'`
-
-Modes:
-
-- `./adversary <id> skip_verify <dest>` => sends a packet without valid accounting signatures. The first relay should log `signature verification failed ... dropping packet`. And the real logs will look like this: `node2-1  | signature verification failed for packet oWvSrHf2uTg=. dropping packet`
-- `./adversary <id> selfish_send <dest> [count]` keeps requesting sends with an empty proof. The node gets the initial allowance, then accounting starts returning `NAK` once it exceeds the threshold. And the real logs will look like this: `node2-1  | [selfish_send] accounting denied packet S7wPvmeVosI=`
-- `./adversary <id> sendFakeReceiptsSelf <dest> [fake_receipt_cnt]` self-issued fake receipt flow. Node `<id>` sends signed fake receipts to `<self>`, loads whatever receipts are stored locally, and tries to spend them when requesting approval for a packet to `<dest>`.
-- `./adversary <id> mutual_collude <dest> <peer> [fake_receipt_cnt]` is for reciprocal fake-credit testing. Run it on both colluding nodes so each side sends fake receipts to the other, then each node submits the peer-issued receipts in its own proof.
+- Without adversarial nodes: [sample-logs/non_adversarial.log](sample-logs/non_adversarial.log)
+- With adversarial nodes: [sample-logs/adversarial.log](sample-logs/adversarial.log)
 
 ## References
 
