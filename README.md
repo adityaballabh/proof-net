@@ -11,20 +11,22 @@ A partially decentralized anonymous network that uses bandwidth contribution pro
 - Source routing with hop length randomization
 - Length-based framing for reliable delivery
 - Topology discovery through bootstrapping
-- Adversarial nodes trying to break fairness
+- Adversarial nodes try to break fairness
 
 ## Usage
+
 `./docker/up.sh [-n node_cnt] [-a acct_cnt] [-c adversarial_config_path]`
 
 ## Adversarial Modes
-- skip_verify: Sends a packet without valid accounting signatures
-- selfish_send: Sends proofs without receipts
+
+- skip_verify: Send without valid accounting signatures
+- selfish_send: Send without receipts
+- self_receipts: Send using self-issued receipts
+- replay: Send using old packet ids
 
 Example: [docker/adversarial_config.txt](docker/adversarial_config.txt)
 
-## Sample Logs
-- Without adversarial nodes: [sample-logs/out.log](sample-logs/out.log)
-- With adversarial nodes: []()
+ProofNet prevents these attacks. However, it is susceptible to colluding nodes exchanging fake receipts with each other.
 
 ## References
 

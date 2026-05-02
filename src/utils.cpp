@@ -49,7 +49,7 @@ int createConnection(string ip, int port) {
         rv = getaddrinfo(ip.c_str(), port_str.c_str(), &hints, &servinfo);
         if (rv != 0) {
             cerr << "retrying. getaddrinfo: " << gai_strerror(rv) << '\n';
-            sleep(RETRY_SECS);
+            sleep(RETRY_SEC);
             continue;
         }
 
@@ -68,7 +68,7 @@ int createConnection(string ip, int port) {
         freeaddrinfo(servinfo);
         if (p)
             return sockfd;
-        sleep(RETRY_SECS);
+        sleep(RETRY_SEC);
     }
     throw runtime_error("max connection retries exceeded");
 }
@@ -550,7 +550,7 @@ void handleBootstrapReq(unordered_map<int, Node> &nw_config, unordered_map<int, 
     sendPacket(out.str(), sockfd);
 }
 
-void fetchTopology(unordered_map<int, Node> &nw_config, unordered_map<int, vector<int>> &adj, Node acct, int node_id) {
+void fetchTopology(unordered_map<int, Node> &nw_config, unordered_map<int, vector<int>> &adj, Node acct) {
     int sockfd = createConnection(acct.ip, acct.port);
     string req = BOOTSTRAP_REQ_PREFIX;
     sendPacket(req, sockfd);
@@ -784,7 +784,7 @@ string generateId(int len) {
 
 void init(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_keys,
           unordered_map<int, vector<int>> &adj, unsigned char *pvt_signing, unsigned char *pvt_encryption,
-          HostType host_type, string nw_config_path, string acct_config_path, int node_id, int argc) {
+          HostType host_type, string nw_config_path, string acct_config_path, int argc) {
     srand(time(0));
     if (sodium_init() == -1)
         throw runtime_error("sodium_init failed");
@@ -796,7 +796,7 @@ void init(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config, unor
     if (host_type == HostType::Node) {
         Node acct = getBootstrapNode(acct_config_path);
         acct_config[acct.id] = acct;
-        fetchTopology(nw_config, adj, acct, node_id);
+        fetchTopology(nw_config, adj, acct);
     } else {
         acct_config = getConfig<map<int, Node>>(acct_config_path);
         nw_config = getConfig<unordered_map<int, Node>>(nw_config_path);

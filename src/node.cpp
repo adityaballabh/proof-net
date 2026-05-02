@@ -73,11 +73,11 @@ int main(int argc, char **argv) {
     try {
         int node_id = stoi(argv[1]), sockfd;
         init(nw_config, acct_config, pub_keys, adj, pvt_signing, pvt_encryption, host_type, "", BOOTSTRAP_CONFIG_PATH,
-             node_id, argc);
+             argc);
         sockfd = createServer(nw_config[node_id].port);
 
         if (!fork()) {
-            sleep(2);
+            sleep(DEFAULT_SLEEP_SEC);
             close(sockfd);
             vector<int> delays;
             vector<pair<Message, Packet>> msg_pkt_pairs = loadMessages(adj, delays, node_id);

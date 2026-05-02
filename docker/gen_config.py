@@ -14,7 +14,7 @@ class Mode:
     SKIP_VERIFY = "skip_verify"
     SELFISH_SEND = "selfish_send"
     SELF_RECEIPTS = "self_receipts"
-    COLLUDE = "collude"
+    REPLAY = "replay"
 
 
 def parse_adversary_spec(path):
@@ -40,12 +40,9 @@ def parse_adversary_spec(path):
         extra_args = parts[3:]
 
         match mode:
-            case Mode.SKIP_VERIFY | Mode.SELFISH_SEND | Mode.SELF_RECEIPTS:
+            case Mode.SKIP_VERIFY | Mode.SELFISH_SEND | Mode.SELF_RECEIPTS | Mode.REPLAY:
                 if len(extra_args) > 1:
                     sys.exit(f"usage: <node_id> {mode} <dest> [rep_cnt]")
-            case Mode.COLLUDE:
-                if len(extra_args) < 1 or len(extra_args) > 2:
-                    sys.exit(f"usage: <node_id> {mode} <dest> <peer> [rep_cnt]")
             case _:
                 sys.exit(f"unknown mode: {mode}")
 

@@ -26,7 +26,7 @@ int main(int argc, char **argv) {
         unordered_map<int, vector<int>> adj = getTopology(TOPO_CONFIG_PATH);
 
         init(nw_config, acct_config, pub_keys, adj, pvt_signing, pvt_encryption, host_type, NW_CONFIG_PATH,
-             ACCT_CONFIG_PATH, node_id, argc);
+             ACCT_CONFIG_PATH, argc);
         sockfd = createServer(acct_config[node_id].port);
         processConnections(nw_config, acct_config, pub_keys, adj, pvt_signing, pvt_encryption, sockfd, node_id,
                            host_type);

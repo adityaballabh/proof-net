@@ -14,7 +14,7 @@ services:
 
   node1:
     image: proof-net
-    command: /adversary 1 collude 3 5
+    command: /adversary 1 replay 4 2
     depends_on:
       - acct1
     volumes:

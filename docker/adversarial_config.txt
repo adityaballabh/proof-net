@@ -1,5 +1,5 @@
-# node_id mode dest [peer|count]
-# modes: skip_verify <dest>, selfish_send <dest> <count>
+# usage: node_id mode dest [rep_cnt]
+# modes: skip_verify, selfish_send, self_receipts, replay
 
-1 collude 3 5
+1 replay 4 2
 2 selfish_send 3 5

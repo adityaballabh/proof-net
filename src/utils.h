@@ -30,7 +30,7 @@ namespace fs = std::filesystem;
 const int BACKLOG = 8, MAX_LEN = 256, INIT_ALLOWED = MAX_LEN * 2, HOP_ID_LEN = 4, PACKET_ID_LEN = 8, SALT_LEN = 16,
           ACCT_COMMON_ID = -1, LEN_BYTES = 2,
           PACKET_ID_B64_LEN = sodium_base64_encoded_len(PACKET_ID_LEN, sodium_base64_VARIANT_URLSAFE) - 1,
-          MAX_RANDOM_HOP_CNT = 3, MAX_RETRY_CNT = 5, RETRY_SECS = 1;
+          MAX_RANDOM_HOP_CNT = 3, MAX_RETRY_CNT = 5, RETRY_SEC = 1, DEFAULT_SLEEP_SEC = 2, DEFAULT_REP_CNT = 4;
 
 const string RECEIPT_PREFIX = "receipt ", PROOF_PREFIX = "proof ", ACCT_RESP_PREFIX = "acct_resp ", ACK_STR = "ACK",
              NAK_STR = "NAK", ACCT_COMMON = "acct_common", INIT = "init", PREV_IDS = "prev_ids", KEYS_DIR = "keys",
@@ -107,4 +107,4 @@ bool canSendPacket(map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_
 string generateId(int len);
 void init(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_keys,
           unordered_map<int, vector<int>> &adj, unsigned char *pvt_signing, unsigned char *pvt_encryption,
-          HostType host_type, string nw_config_path, string acct_config_path, int node_id, int argc);
+          HostType host_type, string nw_config_path, string acct_config_path, int argc);
