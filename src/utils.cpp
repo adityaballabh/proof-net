@@ -130,7 +130,9 @@ string getBase64Decoded(string encoded){
     return bin;
 }
 
-bool isValidReceipt(Receipt receipt, PubKey pub_key){
+bool isValidReceipt(Receipt receipt, PubKey pub_key, int node){
+    if(receipt.receiver != node || receipt.generator == node)
+        return false;
     string payload = getReceiptPayload(receipt);
     unsigned char signature[crypto_sign_BYTES];
 
@@ -364,8 +366,31 @@ void processPacket(unordered_map<int, Node> &nw_config, unordered_map<int, PubKe
         cout << "\ndecryption failed for packet" << '\n';
         return;
     }
-    string packet_id = layer.id;
+    string packet_id = layer.id, prev_pkt;
 
+    unordered_set<string> prev_pkts;
+    fs::path prev_pkts_path = fs::path(STATE_DIR) / (PREV_IDS + TXT);
+    ifstream prev_pkts_in(prev_pkts_path);
+
+    while(prev_pkts_in >> prev_pkt)
+        prev_pkts.insert(prev_pkt);
+    if(prev_pkts.count(packet_id)){
+        cout << "\n duplicate packet id: " << packet_id << ". dropping packet\n";
+        return;
+    }
+
+    string msg = packet_id + getHash(layer.salt, node_id), payload = layer.payload;
+    auto acct_pub_key = pub_keys[ACCT_COMMON_ID];
+    bool is_valid = !crypto_sign_verify_detached((unsigned char*) layer.signature.data(), (unsigned char*) msg.data(), msg.size(), acct_pub_key.signing);
+
+    if(!is_valid){
+        cout << "\nsignature verification failed for packet " + packet_id << ". dropping packet\n";
+        return;
+    }
+
+    ofstream prev_pkts_out(prev_pkts_path, ios::app);
+    prev_pkts_out << packet_id << '\n';
+    
     if(prev_node != -1 && nw_config.count(prev_node)){
         Node prev_hop = nw_config[prev_node];
         int sockfd = createConnection(prev_hop.ip, prev_hop.port);
@@ -377,28 +402,6 @@ void processPacket(unordered_map<int, Node> &nw_config, unordered_map<int, PubKe
         close(sockfd);
     }
     
-    string msg = packet_id + getHash(layer.salt, node_id), payload = layer.payload;
-    auto acct_pub_key = pub_keys[ACCT_COMMON_ID];
-    bool is_valid = !crypto_sign_verify_detached((unsigned char*) layer.signature.data(), (unsigned char*) msg.data(), msg.size(), acct_pub_key.signing);
-
-    if(!is_valid){
-        cout << "\nsignature verification failed for packet " + packet_id << ". dropping packet\n";
-        return;
-    }
-    unordered_set<string> prev_pkts;
-    string prev_pkt;
-    fs::path prev_pkts_path = fs::path(STATE_DIR) / (PREV_IDS + TXT);
-    ifstream prev_pkts_in(prev_pkts_path);
-    while(prev_pkts_in >> prev_pkt)
-        prev_pkts.insert(prev_pkt);
-
-    if(prev_pkts.count(packet_id)){
-        cout << "\n duplicate packet id: " << packet_id << ". dropping packet\n";
-        return;
-    }
-    ofstream prev_pkts_out(prev_pkts_path, ios::app);
-    prev_pkts_out << packet_id << '\n';
-
     if(next_hop_id == -1){
         cout << "\npacket reached destination: " + packet_id + ' ' + payload << '\n';
         return;
@@ -417,7 +420,7 @@ void processPacket(unordered_map<int, Node> &nw_config, unordered_map<int, PubKe
 bool canSend(Proof proof, unordered_map<int, PubKey> &pub_keys, string packet_id, int node){
     NodeState node_state = getNodeState(node);
     for(Receipt r : proof.receipts){
-        if(node_state.receipt_ids.count(r.packet_id) || !isValidReceipt(r, pub_keys[r.generator]) || r.generator == node)
+        if(node_state.receipt_ids.count(r.packet_id) || !isValidReceipt(r, pub_keys[r.generator], node))
             continue;
         node_state.receipt_ids.insert(r.packet_id);
         node_state.forwarded += r.bytes;
@@ -602,7 +605,7 @@ void processConnections(unordered_map<int, Node> &nw_config, map<int, Node> &acc
                     string encrypted_payload = packet_str.substr(RECEIPT_PREFIX.size());
                     Layer layer = getOnionDecrypted(pub_keys[node_id], pvt_encryption, encrypted_payload, true);
                     Receipt receipt = parseReceipt(RECEIPT_PREFIX + layer.payload);
-                    if(isValidReceipt(receipt, pub_keys[receipt.generator]))
+                    if(isValidReceipt(receipt, pub_keys[receipt.generator], node_id))
                         storeReceipt(receipt);
                 }
             }
