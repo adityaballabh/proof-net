@@ -37,7 +37,9 @@ const string RECEIPT_PREFIX = "receipt ", PROOF_PREFIX = "proof ", ACCT_RESP_PRE
              STATE_DIR = "state", RECEIPTS_DIR = "receipts", MESSAGES_DIR = "messages", PUB = "pub", PVT = "pvt",
              KEY_SUFFIX = ".key", TXT = ".txt", BOOTSTRAP_REQ_PREFIX = "bootstrap_req",
              BOOTSTRAP_RESP_PREFIX = "bootstrap_resp", NW_CONFIG_PATH = "nw_config.txt",
-             ACCT_CONFIG_PATH = "acct_config.txt", TOPO_CONFIG_PATH = "topo.txt", BOOTSTRAP_CONFIG_PATH = "acct.txt";
+             ACCT_CONFIG_PATH = "acct_config.txt", TOPO_CONFIG_PATH = "topo.txt", BOOTSTRAP_CONFIG_PATH = "acct.txt",
+             SKIP_VERIFY = "skip_verify", SELFISH_SEND = "selfish_send", REPLAY = "replay",
+             SELF_RECEIPTS = "self_receipts", COLLUDE = "collude";
 
 const char RECEIPT_DELIM = ';', RECEIPT_COMMITMENT_DELIM = '|';
 

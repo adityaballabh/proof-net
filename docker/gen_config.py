@@ -10,6 +10,13 @@ ACCT_BASE_ID = 3000
 ACCT_BASE_PORT = 3000
 
 
+class Mode:
+    SKIP_VERIFY = "skip_verify"
+    SELFISH_SEND = "selfish_send"
+    SELF_RECEIPTS = "self_receipts"
+    COLLUDE = "collude"
+
+
 def parse_adversary_spec(path):
     adversaries = {}
     if not path:
@@ -17,35 +24,33 @@ def parse_adversary_spec(path):
     file = Path(path).read_text().splitlines()
 
     for entry in file:
+        entry = entry.strip()
         parts = entry.split()
         if not entry or entry.startswith("#"):
             continue
 
-        assert len(parts) >= 3, f"invalid spec entry for adversary: {entry}"
+        assert len(parts) >= 3, f"invalid adversary spec: {entry}"
         try:
             node_id = int(parts[0])
             dest = int(parts[2])
         except Exception:
-            sys.exit(f"invalid adversary spec entry: {entry}")
+            sys.exit(f"invalid adversary spec: {entry}")
 
         mode = parts[1]
         extra_args = parts[3:]
 
-        if mode == "skip_verify":
-            if extra_args:
-                sys.exit("skip_verify only accepts: node_id mode dest")
-        elif mode == "selfish_send":
-            if len(extra_args) > 1:
-                sys.exit("selfish_send accepts at most one optional count")
-        elif mode == "sendFakeReceiptsSelf":
-            if len(extra_args) < 1 or len(extra_args) > 2:
-                sys.exit("sendFakeReceiptsSelf requires dest and optional fake_receipt_cnt")
-        elif mode == "mutual_collude":
-            if len(extra_args) < 1 or len(extra_args) > 2:
-                sys.exit("mutual_collude requires peer and optional fake_receipt_cnt")
-        else:
-            sys.exit(f"unknown mode: {mode}")
+        match mode:
+            case Mode.SKIP_VERIFY | Mode.SELFISH_SEND | Mode.SELF_RECEIPTS:
+                if len(extra_args) > 1:
+                    sys.exit(f"usage: <node_id> {mode} <dest> [rep_cnt]")
+            case Mode.COLLUDE:
+                if len(extra_args) < 1 or len(extra_args) > 2:
+                    sys.exit(f"usage: <node_id> {mode} <dest> <peer> [rep_cnt]")
+            case _:
+                sys.exit(f"unknown mode: {mode}")
 
+        if node_id in adversaries:
+            sys.exit(f"invalid adversary spec: duplicate config for node {node_id}")
         adversaries[node_id] = [mode, str(dest), *extra_args]
 
     return adversaries
@@ -100,8 +105,7 @@ if node_cnt <= 0 or acct_cnt <= 0:
 for node_id in adversaries:
     if node_id < 0 or node_id >= node_cnt:
         sys.exit(
-            f"invalid adversary spec: node id {node_id} is outside "
-            f"configured range [0, {node_cnt - 1}]"
+            f"invalid adversary spec: node id {node_id} is not in [0, {node_cnt - 1}]"
         )
 
 compose_path = DOCKER_DIR / "docker-compose.yml"

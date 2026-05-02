@@ -1,5 +1,5 @@
 # node_id mode dest [peer|count]
 # modes: skip_verify <dest>, selfish_send <dest> <count>
 
-1 skip_verify 0
+1 collude 3 5
 2 selfish_send 3 5
