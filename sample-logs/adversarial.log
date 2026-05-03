@@ -1,196 +1,212 @@
- Container docker-acct2-1  Recreate
- Container docker-acct1-1  Recreate
  Container docker-acct0-1  Recreate
+ Container docker-acct1-1  Recreate
+ Container docker-acct2-1  Recreate
+ Container docker-acct2-1  Recreated
+ Container docker-node2-1  Recreate
+ Container docker-node5-1  Recreate
+ Container docker-acct1-1  Recreated
+ Container docker-node1-1  Recreate
+ Container docker-node4-1  Recreate
  Container docker-acct0-1  Recreated
+ Container docker-node3-1  Recreate
  Container docker-node6-1  Recreate
  Container docker-node0-1  Recreate
- Container docker-node3-1  Recreate
- Container docker-acct1-1  Recreated
- Container docker-node4-1  Recreate
- Container docker-node1-1  Recreate
- Container docker-acct2-1  Recreated
- Container docker-node5-1  Recreate
- Container docker-node2-1  Recreate
+ Container docker-node5-1  Recreated
+ Container docker-node2-1  Recreated
+ Container docker-node4-1  Recreated
+ Container docker-node1-1  Recreated
+ Container docker-node6-1  Recreated
  Container docker-node3-1  Recreated
  Container docker-node0-1  Recreated
- Container docker-node4-1  Recreated
- Container docker-node6-1  Recreated
- Container docker-node5-1  Recreated
- Container docker-node1-1  Recreated
- Container docker-node2-1  Recreated
 Attaching to acct0-1, acct1-1, acct2-1, node0-1, node1-1, node2-1, node3-1, node4-1, node5-1, node6-1
-acct0-1  | 
-acct0-1  | received from 3: bootstrap_req
-acct2-1  | 
-acct2-1  | received from 2: bootstrap_req
-acct0-1  | 
-acct0-1  | received from 6: bootstrap_req
-acct0-1  | 
-acct0-1  | received from 0: bootstrap_req
 acct2-1  | 
 acct2-1  | received from 5: bootstrap_req
 acct1-1  | 
 acct1-1  | received from 4: bootstrap_req
+acct2-1  | 
+acct2-1  | received from 2: bootstrap_req
 acct1-1  | 
 acct1-1  | received from 1: bootstrap_req
-node3-1  | 
-node3-1  | scheduled message. prev packet id: 3_first, new packet id: SjuKxASJ7z8=
-node3-1  | computed route: 3 2 6 
-node3-1  | delay: 18s message: 3_first 18 6 first message from node3
+acct0-1  | 
+acct0-1  | received from 6: bootstrap_req
+acct0-1  | 
+acct0-1  | received from 0: bootstrap_req
+acct0-1  | 
+acct0-1  | received from 3: bootstrap_req
+acct1-1  | 
+acct1-1  | received from 4: proof a6l6jYCWHHDgA0FRRldoX4vPufafcCzeCGpV2acd8180cWUcpK5JqZWqI1uPc31_ZYKLDZmiAgWXU1VxH4F6JaV3rO6yfYpGUrU9UzhLzQN1PjnnmEmCo2EtNtKZrEwklZPTIljg174nmC4ZpBo=
+acct1-1  | 
+acct1-1  | succesfully decrypted proof
+acct1-1  | no receipts found in proof
+acct1-1  | node4 used: 0 forwarded: 0 threshold: 16384
+acct1-1  | allowed send for 4
+node4-1  | 
+node4-1  | [replay_honest] sending packet wkTObZrAvsQ=
+node4-1  | 
+node4-1  | packet reached destination: wkTObZrAvsQ= replay_honest0
 node2-1  | 
-node2-1  | scheduled message. prev packet id: 2_first, new packet id: ddn7h9qCw1U=
+node2-1  | scheduled message. prev packet id: 2_first, new packet id: qfMFSPr6Feg=
 node2-1  | computed route: 2 3 1 
-node2-1  | delay: 3s message: 2_first 3 1 first message from node2
+node2-1  | delay: 3s message: 2_first 3 1 message1 from node2
 node2-1  | 
-node2-1  | scheduled message. prev packet id: 2_second, new packet id: _H9rsNuKNBc=
-node2-1  | computed route: 2 3 1 0 
-node2-1  | delay: 8s message: 2_second 8 0 this is another message from two
+node2-1  | scheduled message. prev packet id: 2_second, new packet id: cPayv9mnO_E=
+node2-1  | computed route: 2 5 0 
+node2-1  | delay: 8s message: 2_second 8 0 message2 from node2
 node2-1  | 
-node2-1  | scheduled message. prev packet id: 2_third, new packet id: tSgV3IVoQ4g=
-node2-1  | computed route: 2 3 4 5 0 1 
+node2-1  | scheduled message. prev packet id: 2_third, new packet id: ckDpuYYlF28=
+node2-1  | computed route: 2 3 1 
 node2-1  | delay: 13s message: 2_third 13 1 third message from node2 without forwarding
 node2-1  | 
-node2-1  | scheduled message. prev packet id: 2_fourth, new packet id: 3wDf7yyAy0Y=
+node2-1  | scheduled message. prev packet id: 2_fourth, new packet id: QiW6x2EBAwc=
 node2-1  | computed route: 2 5 4 3 1 
-node2-1  | delay: 24s message: 2_fourth 24 1 another attempt from node2
-acct1-1  | 
-acct1-1  | received from 4: proof uhFPIMuN6ojmdts-m3QN6QFS8M9mdYQxZKnFUc63_gHwA1fSklSHauT3ZUjNJFepfDsNqnqbnRjVCWts2Ro1kE_agZ6rB0LGtbMzv4T3M8fU2lafeAQ8jO56bcKQjAQlbaNjdNX4jjVcZCUZz9o=
-acct1-1  | 
-acct1-1  | succesfully decrypted proof
-acct1-1  | no receipts found in proof
-node4-1  | 
-node4-1  | [replay_honest] sending packet V5CCcPEwVP4=
-node4-1  | 
-node4-1  | packet reached destination: V5CCcPEwVP4= replay_honest0
+node2-1  | delay: 24s message: 2_fourth 24 1 message4 from node2
 node1-1  | 
-node1-1  | [skip_verify] sending packet X9-R6EoYsWE=
+node1-1  | [skip_verify] sending packet xd2hO3CoRPg=
 node1-1  | 
-node1-1  | signature verification failed for packet X9-R6EoYsWE=. dropping packet
-acct1-1  | node4 used: 1024 forwarded: 0 threshold: 2048
-acct1-1  | received from 4: proof 49849TnaM1UQV0ObtrZKz5m7_evf0Wzpxd1w98NtUxHu0qAnmFJaP-Zu-HTPshF97lUhKha1iL8mRp7HDTgeVmjuHGSsWHW6eCARe3CPWkZ4lmil4A4AWK3Kdaf7EPKDvi__SP1a4xC4ru1PuJw=
+node1-1  | signature verification failed for packet xd2hO3CoRPg=. dropping packet
+node3-1  | 
+node3-1  | scheduled message. prev packet id: 3_first, new packet id: xvyH2uD69kI=
+node3-1  | computed route: 3 2 6 
+node3-1  | delay: 18s message: 3_first 18 6 message1 from node3
+acct1-1  | 
+acct1-1  | received from 4: proof QaA6D7_i-67zG29WevfB5gTB2KkyGXwZZRY6BeU_OTyFdH8_xUS0pETj3PONp8IlkruCpVyswjPSJuys1XqdReBMUn8uZ-FiCB1pe_ggLFw8tKHy2ivBMcxaN77M1kJ4DYbX1xtl9FBiGUOkweU=
 acct1-1  | 
 acct1-1  | succesfully decrypted proof
 acct1-1  | no receipts found in proof
+acct1-1  | node4 used: 8192 forwarded: 0 threshold: 16384
+acct1-1  | allowed send for 4
 node4-1  | 
-node4-1  | [replay_honest] sending packet 692CV5DsmnM=
+node4-1  | [replay_honest] sending packet gkmiFtT_8nc=
 node4-1  | 
-node4-1  | packet reached destination: 692CV5DsmnM= replay_honest1
+node4-1  | packet reached destination: gkmiFtT_8nc= replay_honest1
 node1-1  | 
-node1-1  | [skip_verify] sending packet JH5l715GKwQ=
+node1-1  | [skip_verify] sending packet oh-Fturpg6A=
 node1-1  | 
-node1-1  | signature verification failed for packet JH5l715GKwQ=. dropping packet
+node1-1  | signature verification failed for packet oh-Fturpg6A=. dropping packet
 acct2-1  | 
-acct2-1  | received from 2: proof YZc6E0rRU0SvZCH7aCdYYp7EZlhur3omS5TjqNHGdBT-xOFG-9oC0SmyQMXCUxBnd0O8ViAUYW4lLMnF_G-o2C0441r8xcJnsqjbG6Tz51KjsfFcmAzGFWwxtYQeN4COHzck6KZ4Z83prR94gFKLT6fCf5agR6vTbwcr2ilHCVTiGUZBhFBitpId2KvXsRqH2Al4mAMbZelb2e9fa_rjMzC1AHAdnGtxwFbfMBOKWlQtvrF_ek3HAlDGk99v8W_zgvDv0usmZx0=
+acct2-1  | received from 2: proof _i_6yycvRK4WakX6POwnD4JgT40-1qbu_vgpQD9qiXXvj1d7HxK9aV9jMyPzQdQjeniNUSHqeKr4SfQgeXJl2L-zJB8em_BAcSdo6kXlVhc6UQJMOvFFWohC_aRIHPCgLOHhmtEYpBT6vAvKkoPOKMi2L__SccHuacuyU4jLUqMGPwefJznxXO1wentvVKhjhiqCp1UIFrZeN30szBOn2qbxgEuLyRzzRz2gZc7iyJNAhx43ckYn9h_-eeQIQV90IqupIfNa348=
 acct2-1  | 
 acct2-1  | succesfully decrypted proof
 acct2-1  | no receipts found in proof
+acct2-1  | node2 used: 0 forwarded: 0 threshold: 16384
+acct2-1  | allowed send for 2
 node2-1  | 
-node2-1  | sending packet ddn7h9qCw1U=
-node3-1  | 
-node3-1  | received from 2: b6cDJlJEaFi4e0VKMTAg_cpCITRgz3Wh-cPIqsg01FLKS3stb2h5HOpAf15UwD9gSDp5JNuS06kkmF7U76iW7EX7b9l2PQoMOaHzVL_RIG915SwT_9Xg2s0wl7vmExB-Atl-B8bJbYwZemUM4WlG5-jeGL9S6SKlAhRGZSfSCX74Dsc8pVa6ig1HaLdy3ERbRqL9d47B_lTJ7m-lghyWu-bN3iagdQJnkPe5uKHU0nQLQDQZH9eVs27XOrYkAkhRsYWj_3HuAWKnk4-yE6gmc3duripmngIVTXkoMblz4QFcpnvgy-e66i6xXZSurxwkE3HnilKDYKTtfpnqHnbLCXhcopPE-9aKRw1rVcR_mFx49RQJeu75EMgKCCSNxC8bIgJjyPQsmlNB7gtnJk-dslkpHYAxSn3O
+node2-1  | metrics for qfMFSPr6Feg= route length: 3 hops, payload size: 19 B, onion size: 604 B, onion/payload: 31.8
 node2-1  | 
-node2-1  | received from 3: receipt KZXVhMRP09vjQ1su_0dkr7AzVJz1xxfXyeD8HoOiTUTNFHaQ00zpGxzCHcn4ABBJpmyEAFgPKPNGIYzKJ8iSxuUvQIbCYAlftcqhJ1pjPU5t7ckbGYpoKDBGq8bI8nEMqiVAf5k1dLIVcF--_JVQkHb2vS0xhG-wQQMAXFNgn2kBQiEiXh6CAVk8RgbraeEe5Clx7hr3qKxP1yDMtRiEvcE=
-node1-1  | 
-node1-1  | received from 3: 4_rC07i6bp_UDYavqS0kJgov2Xdlfy-1yeWcEYUdk3367RVXPXchieLredgFwkvzYAezSuc_WlXs_f2HpFueGSVCz1pWbdhe9X49hr9-JtAykNLnsA1ELLYntSZZNb1hZOGIWeVK9kXRy8UlDVe5gI4DTLefOFBxpx9MKgouyUZtsMfryjQ-cPdVOExgNcB_33P4DsudRXa91va_3CiCdTaokxtilIjc
-node1-1  | 
-node1-1  | packet reached destination: ddn7h9qCw1U= first message from node2
+node2-1  | sending packet qfMFSPr6Feg=
 node3-1  | 
-node3-1  | received from 1: receipt S4Kr9L4jUXCx2x6CBcL4MuE1W0M1YICq4yiIZOsAojRHBcKMY4eu767VQbWvEjmi-mNjLLR8t7ZZPJZZ_NWPA5UDdmiQM0TCNFN9AL8K2Zjt10htQYaF0wRXN8YG3iT6mJwU1aN2lnNR2BZh001a2omaEI8syGmyHYi6ybrSgdH3Xore3KA7VZGW4SCXkJqzGKuFjoOPFZRcPqldV6oNUns=
+node3-1  | received from 2: GXaWot4ibNaiITieDyYU-Df7yqgeUxMTPY6w0LJOVjzy8IJhRjG314hHymXCkOlH1VI0v_JnWdf9vIaU8px6pbjauaN5HupiH9jGMkqDKi19I3P9ryo4RZSPo7FOyzeyuHxmfDk7Y3Fh-TCu8ucYwdu8sQaYX_VoII7KUC60GiRhHa_THjpvvKA2N-X6ny93JIR4U37OAJAF2XfArsU56SefH94sFCtTXDuVJBKiYG-pzq-iX5tvRSPpyCqs3DchdFp2qeJ6wE-1H8KsNPEcVjkrZCejrZbJ0iCoAhLXrZh3COz0uD8-zEK5a-bSULNHoVOwv0FxG7j9Usrs4f67Sg6vJcvein8dGxdPnVKRA9DDHJgf-pX86Oj9qvGwHK1n47yzh6uXiACil9cjJdKrBVkuIQ==
+node2-1  | 
+node2-1  | received from 3: receipt EPSJirz3ws4ZPcoP51GbJ6TaLksvaXW_2G37Wm-Q_AMFLHIzUyIBpMHv3ro6VSxmJuoXoHedpbQJXIX10B1aEGZX5Hr9TFoJHrMbaaJEEAF3f39MJQIY8-8K03N7r9D3dwFftWamFQEgVhYY7ycLzFJbR6VqKBlHfBJTEn_Mmd-zZf-0LBjR_CaoKKpWsOXzGxYORfYVEYZ-86C4S4SI0C8=
+node1-1  | 
+node1-1  | received from 3: 3PS2tRWPE_g5DtPUUX7bJC3NtHzNWEHC591373t15nLTvypDs8aciZ6scxNT--HZ45J4wAS30b2rFj3WyTOKLkSmNHuiDVUdgB5bZujxF9llFSKH-PxGnRj7sLKdxmnggIMexjGmUYNIZ9iTdP1eYprzHTd0S31VDYaiuxcEHAqexZlK2YxxaXfwAMW9mMCXi-Sntt614PK92hv58HX2PIFHtg==
+node1-1  | 
+node1-1  | packet reached destination: qfMFSPr6Feg= message1 from node2
+node3-1  | 
+node3-1  | received from 1: receipt K_mfs_ZydagW3Gk8ia26QdIYRMzQuV4k7fzhzzD1RG2yijrP1YLGSmwCEOTmoBQKhcS941y_Wcwm0FZVH_OSi7-R1E_F06XUutHcV3nCH3UlsLucS2NawEPCJY7VDxPFTHmoK9AA2TdyPf1rAU1Geist62W2Ep_JKaYHXKUX0C0hfz6DVw0rHsXc3HB7Ut5SNrbpf-oIREjq2CxnuQ_-4gQ=
 node4-1  | 
 node4-1  | [replay] replaying 2 packet ids
-node1-1  | 
-node1-1  | [skip_verify] sending packet 3C2sO4SgmwQ=
-node1-1  | 
-node1-1  | signature verification failed for packet 3C2sO4SgmwQ=. dropping packet
-acct1-1  | node4 used: 2048 forwarded: 0 threshold: 2048
-acct1-1  | received from 4: proof o4mCDRD2YbHR-X8oo5Il1mmdoyppc-gjhOpU1JZWCESzMFnHzrhsMv-J69FyAD5a7tTetyNJcCINvnUIoE3hz7TU2vmYMjMYGt_xD9ka5s9R-zVJuYhbAYWF5jSNQtj8RDCTJRpcbdxFXxdFoJQ=
+acct1-1  | 
+acct1-1  | received from 4: proof jKdOJ0SbGOJq5orsK86MWKT1hdlyhb22HEqltqU1iBsXGpqHh3g9kgWOpwQ9jbaVvwtsa3Cy_6Fv8yB-u1dS1Yhq1Mwiu4vQimImvNTEwGVy3fRxbjmo76udO_S4MTGe24PsnlQaDe50hF7GUDs=
 acct1-1  | 
 acct1-1  | succesfully decrypted proof
 acct1-1  | no receipts found in proof
-acct1-1  | node4 used: 3072 forwarded: 0 threshold: 2048
+acct1-1  | node4 used: 16384 forwarded: 0 threshold: 16384
 acct1-1  | denied send for 4
-node4-1  | [replay] acct denied packet V5CCcPEwVP4=
+node4-1  | [replay] acct denied packet wkTObZrAvsQ=
 acct1-1  | 
-acct1-1  | received from 4: proof Lc2hYcQ5Prm3xw-zB4h7mX_zGT8TPBuC8PgXE-vW8hUS6Rkctr2ejavuB0Hz5uVWdj8gNAbN-JFGKddh5dscETYsqlQr7en8peeSXU_pmr9ogNoQ75i6lMK0mefnpfIxYcw8PuynXmA4h8nplVg=
+acct1-1  | received from 4: proof VIcGoXzyS0JlDGxJ_CVGG2YfWy0dSK3CJoZsxTGPAmTrHfX09zwxCqSasuLng9eRyp-HH0l2x9MIP6ox7gFsSAO45jfRAldnwXVRqAA6HXdd6kdfHby7Ax-DCXXHHaTnqu4mSYuSeHJIsrtjlnM=
 acct1-1  | 
 acct1-1  | succesfully decrypted proof
 acct1-1  | no receipts found in proof
-acct1-1  | node4 used: 3072 forwarded: 0 threshold: 2048
+acct1-1  | node4 used: 16384 forwarded: 0 threshold: 16384
 acct1-1  | denied send for 4
-node4-1  | [replay] acct denied packet 692CV5DsmnM=
+node4-1  | [replay] acct denied packet gkmiFtT_8nc=
 node1-1  | 
-node1-1  | [skip_verify] sending packet bVSxyz4Cdq0=
+node1-1  | [skip_verify] sending packet cY2oCMpCCf4=
 node1-1  | 
-node1-1  | signature verification failed for packet bVSxyz4Cdq0=. dropping packet
-acct2-1  | node2 used: 1024 forwarded: 0 threshold: 2048
-acct2-1  | received from 2: proof DRWcFhApsCAqDp5GcFX4nsgtKTEYY3fS1fLH9DCQQ3GuSzRhes4FsoVWiIuk2KTJwRglmQxKJvVC4if-dFOLkK-gxIuxL-2WeW14xh_d9AC_iYemFmQd08op8Nb2acYbPjm02wiAidqgy8VU9yX4L-4UC4g7L6XZxJpHQjfcC3JThbIdEZjBnXPTSg4_xYQ1CmzfCWh1sXPT46uo8DpuUWG0EJAfQSKkUpw5omX7Ottenxb3gPdV3DJoUasCg_FxwBhCfiozV4MXUjiwFZ_aFJgz9k7sejRXeGBlucjSPO4c9maonVZz8_-VV6VSoq4VfKz4fmHHsqAU29lBy64-vsf4LzT0ibxd724X06gG6sQT__m48uakYkDol-p_HkMdrYf4Gnm-Vm5ryCPE5e5dQTqCfSuR9spuivN4rLin9DfTgNM7Nu0Zhqt0jo0G5SA0JxlCBOjPfZA8gs__vrnjlC2icVB-r5YZaT3xQA==
+node1-1  | signature verification failed for packet cY2oCMpCCf4=. dropping packet
+node1-1  | 
+node1-1  | [skip_verify] sending packet gtNbsbK80YQ=
+node1-1  | 
+node1-1  | signature verification failed for packet gtNbsbK80YQ=. dropping packet
+acct2-1  | 
+acct2-1  | received from 2: proof 9pLK4ZIoRlw15wEj0JvFXURtZDWKPTan9tQz7Al7aA-uvugGGMR1gW2QrggzBd4UiyQHiGavNHYttwT9Wti_MccFX7SwzsSjBrEiVaM-hShKuYh5-1cW7SPNSWW0CKRazHX6nBUsXpdNGO8DjIVkktbcY2E08RcdDjVV82CE3FEY3x1SG3zss9N57SWMNvHoAuEFGSNTuggbUyz3gm2Zq6xxrLHGqMS9tYRqR5EneylfJW1GG0fjvsAj5wFU1BMZ61phUw3VZyHHEmwoRylHgLEFIY18o6pgG9xHzWnrnEjj8hpD2bPdg-1GqjqB2SSsCFy2f1bgnsHMY0L3Xdy_FP2HjLinZLN8gyvF3ZxVOi6JO8aHNolnDAXQDJNpO9SKipdJUot8ll4h0d8HaO3hU1vxt-TqrB2TQA_X43LhXQ==
 acct2-1  | 
 acct2-1  | succesfully decrypted proof
-acct2-1  | proof receipt  ddn7h9qCw1U= 3 2 416 XZUjHdiTnRsVUMGMEGDJHFbtkCpBMfKcl2ZAf4eC7c_Xl6eJ1F8TlnaI3Nb7euqsBQKiuTOrJ_25L9S3vGQhCg==;
+acct2-1  | proof receipt  qfMFSPr6Feg= 3 2 412 1aXatWr4Yc73xHFRfIQE8-NJKasGN9-dFTbEFWdxMVSFMODS1f3om_3lQ3OMZB-bN0m6Xmei3Y-EeeSsrKBYCw==;
+acct2-1  | node2 used: 8192 forwarded: 0 threshold: 16384
+acct2-1  | allowed send for 2
 node2-1  | 
-node2-1  | sending packet _H9rsNuKNBc=
-node3-1  | 
-node3-1  | received from 2: YfyyR7ygSX9fDHFngeee5-1S302tYnKNNf36nwxF7F_DA9jEDXvyTw-fUvWsmh6x16tMj_44NLcj-HFTy49F_mGnmvielkVXLAJddw8J9P8iRzZQ4j2cSDhbvqBofhx5tXOWJJBnY1HVW4TsMYCkbKqmLSkruua6cBtD5HAexSh4myDFdoTvCoosUp2IPRb6qrIGTcFWdVFFV2mAPtF2sQxikFq5jJmReM37uYOey7C-PjZ76WJBP5IjA7NAaqC8qjjCc5QGID_Yo6xdEDPsbKOSTHW5AVW7cptQPSpDQGNGn7CtoR-ah0owNf_EDfuUDtwmCnvH7Ropy5jZLjstXTEzPVJ9zZff0kvmqWT08P4pbq0uiDJ9NgNKume5q-sWbr0B6bOViTSPel0x_uLXW_CtgxLUcXq7n5qYmEL-iZ0l9uO6mydvpPXH9IYy8ltk-s3csT7DMlFcSWWYengsEMywsbiPBR08ZA9KNpkPl6uogyoAq77k7tJjuMFQC9KrBcik2nnbrNYyaMA3WyVmiLs-rCPBdujDBDcb1ZwYNY_hCSzX3sjtGfLd0GjeTvGng3GHRJupmXNGf6xR-YyAUHx4nWGf4CWoXPtM2liTLk4=
+node2-1  | metrics for cPayv9mnO_E= route length: 3 hops, payload size: 19 B, onion size: 604 B, onion/payload: 31.8
 node2-1  | 
-node2-1  | received from 3: receipt HqCYPX-ansgrAKEt9SbbhlfgFP_4Pgr7IYE7_S_bSUfg8YvGb_iT4TssmPeBPZ6-WZwyK8696AFgDdo1giV8wV9ksp0ffVVikotMnU5eMufkXR770i9hSsVNmcRn6rZfTD2x0uc2Un7j4HmCHz1DyZq_nfUZQK84tqXkjeadteO8mdqfOMVYTYJxLmSlpJlYbkswvW1qoYQ3EpKwa5KwxgI=
-node1-1  | 
-node1-1  | received from 3: pUwvLn9I-U2_HJOkQ91kGsaS4YxUWOOrqR4ybG0iORoQ_xAKp4vHyAg7NyRdXA63ZdEu7Sv7zvlNk9GVVKtnJlG8fHthO9IpujJivkfAbTu6icsWH24Y2btSdNz2_6v1arhgZ9LpamzylORkU33PdBrYzTC1xZwYBolDgYJNEFGLa9FqxAsxkNqGMT4AKLYCCt-rswN4TBCwxOr0AQGWo2ivIARDXni8XPf85yYRX7RfAd0rwptOpD96pIqU0srSkfzfjIAhSaF9NEzK2viwHRW6wT5Sd96vB8q3x-Lr5eGkvvNOgweyILTMsPnxl9yF4woQcIGHx4NT6YZtivEAGPa3nAZmtNetahhZs0AbIoxgkO9whTw9UT9pGqsNiwTVzucVc2VuxPtua50hHKSX0RLD6NAAopVNEiqhilD_wn0=
-node3-1  | 
-node3-1  | received from 1: receipt XkdeD4w60JXO14EL_kE58dPRO51AcYxAh_lg_pLSzC_WaQ0zObng7xjXu_cKGg97V64jsEXvnbD_alhuPO--Dl6iS8tCMmDzlOpG0iOnrkj9K9rzKYwxTb0gV4N_Sf5LbQaU6CVtD7lXJclRN5r_02YwKvcT4TibYF2leJr93ntdYT5h5FDZR6pRjkmG5WYXIr_Sd_Kd9NEz82kJ9QJSdR0=
+node2-1  | sending packet cPayv9mnO_E=
+node5-1  | 
+node5-1  | received from 2: cuKCXxey2YwWNVNvh04qrh6_djhQfPfRqUPrdDVNqgdH9COnnzK7MSJw1I9gM6GGXul0ukrCqqbYU7MvBeKYQfQmD5NW2pYK4l3hh4uae_LUa-w7iZgOqeNRNmh4hQ0AKl6JOgBhqyxF5BXprrlg7vpkxk8-aZ1ZDHMMokAmCFBNRnczFcU9GCtZSq1zFhQr_hF670Havz-xwIIs0KvtnVOkLUADPIcYcBi3XnBRhvMpqpWWJ4saF5BruxicXnzBdRVXbjGUxduIHafT7Qe0OjCvk6aUgCaNflD8dtyfl7Q2NFx_7-jChsXVyX5duWaPMezy89xc-wY3nBJBhaMBPwEu7WqZYb2XCZ1Uma2UqU-IoeCUP6Uiv2ZvTMe-4F1GBfXCz95qCP6L0Lwtu_p6e2PL-g==
+node2-1  | 
+node2-1  | received from 5: receipt EAWzN2kX2eBxy9JvyKQ3ATWn5ioyzZi8FTT4JBVnJybuW8Cht-p-PUIVV9IN5u-R3RAFs8a_mhs7cHGr-E-6xgFVlSyI76liVCI7FC-sLUacyRgUTGuOF_SBonN2jT7KwPES_itEPYKQJj47DPk62-k32Bqage1djxEKoEOXh447XT2Cpsz3IDokwKz-9JVg7N5EZijY_KgmS1SA9BLMwfE=
 node0-1  | 
-node0-1  | received from 1: -nc0KvPfDdjN4zDyk3UqeOo8xgiMjO4UCEhXW83wjhoO8AjL6pw5pFu58xfVMFUhIVkJFo2ePHhahUWexR81LtaQMxeSdq6-4rGoNpRiX3oD4HjgcUq4JbI2lVFOsm_QXzpRyxgVAtFD3kZAE_UwKzybTB8Xei-KRrWBoOgcSonLa1U9AZk8BEW-yt5es6Qm4vf2M9eXG8SyNIv84Lo6AekzqJvnn_pDC03KT5ceXmc=
+node0-1  | received from 5: s68SWgm6cEm3OugSIhpKCLeWzcsFaUOi_RRs22WoTF-4ExjSgYGwMSgjpP5R1crLwPw7xWVAtvpsGXFx6YjQOiQgi2BYMeIlLT-q2EcxgkcgL5ZagGh3e7WX9WWhPPdXno0GfGCWT-8U2Lm2Ar08iSXWZyMNGCYaJTTwVgSIMUFD2Qr65qhClmSQAJ119ipR0Y-9R-0OIxNPjaKRPi2pJKnsJg==
 node0-1  | 
-node0-1  | packet reached destination: _H9rsNuKNBc= this is another message from two
-node1-1  | 
-node1-1  | received from 0: receipt 3aYDxmLWt5cZsf_e-k8RWB63nCfexXrcSSHcT5OgUli6WPMD35jI_d7QGg4eTScmYSaC4TmwKYfNpKBNXhXWMoTyBwgaX2Rb2_uwuVn6G-VevfuDtUupUDNRyBqHd_QhsjVFk75Z5czYOCWCqzvJT8_ZVrHsZJCs2INaQF2G9aBBzHyLkx3dxiacvyJr7Gr6d0TaWASUEUJN1gmEfnhB8vs=
-acct2-1  | node2 used: 2048 forwarded: 0 threshold: 2048
-acct2-1  | received from 2: proof WZPxeBsc5W_y39Xx_dJ3fPrrDGzd6gC2zq6pnD7030UM0KaRb-cwiKaVbRH5bAMfGqtHp8eo4mhmBd4VBxNUK5XIuXcTjvtC0VeCj9IbDOUWdMIze2r0fBkPoTUAzvV7BZTTB_zV3TK_wBaCCzlneCzlqSfrNLB8kyHYEVDf1rEeiGGfRF0KQoAx0T544bwgx0kw285KpoEJF-LgdmlJC8WGjyz2nVSRcFyIxNFB3WZV6Cm8uGTUgEmDupPqgvkZlxrJQst4-wtNl_Hva-CN9PY0KA-2br6iRTgTsi0lGZZcAU2g4DB60ST8fJGBlzOt5b8I2XS4juTHIZguxV-bMEsJKzRuHZHtLrB4q8UgsYiR0vYkBN487Dict597ftrlxtX_DbsjQfg9M6xSRj43AYp-w5Jr65kofLg6-8UycpHOzN8-b5fpB05OmjPFFTJwv_KKhkhygHR-SrrrZANMl8oASnoPOmKRH7O4SYpVjpqFub9gJU5Okbrt05M8Htv_gZtrFvdKvBdoWMtcNB63bVAT7-ac674y70f-EGrYXBoXgMfe_3-4-C2z9_8qbqs8bJW7rTtCsXigy7QPDjhWw4hLCTYtcA==
+node0-1  | packet reached destination: cPayv9mnO_E= message2 from node2
+node5-1  | 
+node5-1  | received from 0: receipt xBV9UbKEwtsJ_l8Uq4OKWb-fvXCGw__dv5hKSVpJ2Q_x9JFxAtYIQtZN8uZ0xMbawOSr3s2aF-m211xT22j2v41ZOQ-VNnddiq4KTl96sq0ZUaDDSS0F3YfTt-oUqJEjtrv0DzodDM_FnFfJOfKj7oEV4N8FNnO-9Ytr0OErpONF3HZkybOKpSY24NA7j7RmB1IbJU5c9dBdalmvn6zo-yM=
+acct2-1  | 
+acct2-1  | received from 2: proof OMa3ssPkHrVIpmSzh0jnodxtjATOYu2YIW25oHu2vVwhPpk5B6JlcshbXwkxJs2OOHKxohS9oi8AgMk2SweMoCZN4rarWHUXTp01z9vHChQmX64zw6PaUbfcMghnNxGZucGraP1FJIKWgJMSQ8lx1-JxAAM7Yyl_4QWzkFi11aUaeQx3ULceVl3oQdvaDTNrUnbxQ8tJ4I3J2LrlrDz5_GdgrqD1Fd5-DeHN8oo83UEE982TjkRVCKLrD1s27MBRHeSfuDP-nvsGjG_2wVxSwfGjdpN5DeyJUOO9m2DqeH1FxafFyBcvCMC64UB5tNZnRMpccGRaAfx9zzoUPurwKMM3Yg6q4HpoLHrYfufzNt6XB1ig5TL1d7SNaQQxfx2XK7_Nh2nrby3bvIgnq6l61rxbq02iYUfpPTob0xOXBg==
 acct2-1  | 
 acct2-1  | succesfully decrypted proof
-acct2-1  | proof receipt  _H9rsNuKNBc= 3 2 620 PUjHGmDh5uG99dX61LvWOPAo7-vEAQt1sO9wFpsx9SLHPSLJektKSF6lVlKLLXTLyvDs6QJroEU8z7uXsfUfAg==;
-acct2-1  | node2 used: 3072 forwarded: 0 threshold: 2048
+acct2-1  | proof receipt  cPayv9mnO_E= 5 2 412 3umCSV8uHskCYgQdVdTcsRyPSuJhv-7mPl3D9gXRFoBp9I-LVhoeBFkSm0f_ABG2QrTLSP3WfGYVRS3wE36sDg==;
+acct2-1  | node2 used: 16384 forwarded: 0 threshold: 16384
 acct2-1  | denied send for 2
 node2-1  | 
-node2-1  | send was denied for packet tSgV3IVoQ4g=
+node2-1  | send was denied for packet ckDpuYYlF28=
 acct0-1  | 
-acct0-1  | received from 3: proof ubwddk6lrUHcLovV1iUl2VJTdfF_qBMR-haNsyFjBTeWA3Fgjrp8RfH3kVuTqF8nUVvENNGzLYSMsqOLODT61c95GvONnGExACM48T956iKMH6A-QxM4mIrvLd_qarEatiPb2e3UoWw4CBejtsGn4Nv22K5_L-I7CegSn8yBXFgYodWgNnBk22cJ0V2YaSMjlxnS3BctYGVgPuNjy3MLdb91qCDZ7ICb0mWToAaTAE2j9mGIIaArOFlM_tDLm0K8JDJaoiBEhEzJhCyln2I6Nwf5pgYVx9ddZIKE5pppXge0TAJzS1HYMdha_tf3VQUgUclp8bcDG_dypwalQaopbQOMF494FoPOHpMs_Fs_sjiBuwVssYJEzc_Ewd0p2WG87wu06xNBLhdsnJq_RAqcXk1r0mc8hdYrazvz41nqZAUCKm2_kf0EE9jwPUORoz58kanoN1zh3ctPsfB-EwwGhxdGA8nMIMmeKKCXkTqi2LFoyes2QTzzoXkVp_bKrCYUZH8qmbgYH_OJVtXBr6usIHxdCAEkwhRtkydP8WsBh5UC37AGT-zp18P_TlJfMFmOn3ds3M6g
+acct0-1  | received from 3: proof yPzTRp_QHPkKFT1cNkXOHqoRn8MF3P6akes5FkxqSF1YBq64CzLC_NartNEcbKAIpT_4sLsXnsJgtAmBFSsDoJsTXoASSmtmTfF2Lj4hO7el1V0qgy4CoF-pE09_RwMSKPM1QDJhyjkEzIB7uyLE1CpM4QwPOax2rROVBMCrLtYvJNugVwZbKYroN-hMcMkI0o2cxRQMljul-NiFRD47SOE2vr6E9X2yjpipnnDJfZVf7XgybbeiDTuTnE8RjaVBDB16rmEMm6ElU502ZiQuxzSmf4q6AHVQR8l7__5PvmBTu8SThFmMfWJeC_WUp3rPeDZp1By4RlTwHTMaY0uZjZLstbhTM7YTr2_iNmtMIrUqpBMk4jcIlJuXSGbFHtiwzHl8wwC9z1PvNjbDGYkmozO2iccQoaCD7ls2MKNKRQ==
 acct0-1  | 
 acct0-1  | succesfully decrypted proof
-acct0-1  | proof receipt  ddn7h9qCw1U= 1 3 224 zv5xqjshoGShhhig73Guv1xebNgbBBkcmfRtsT4flFE7s7KPUP2CI9jGYEX1YtGPAh9yL3_8sC7TFa3c9nOHDg==;receipt  _H9rsNuKNBc= 1 3 428 pfKZXMwhbM6hqjrfTyTHopzQU1yEW_r7wYWje9TJaafkrG1DsGsAEIqrqypjsc32k8VKjjUiDNy0z-bfdzWqCQ==;
+acct0-1  | proof receipt  qfMFSPr6Feg= 1 3 220 9dwnWvFxnUa4aTJ2RxTT4yQStb77dWOhHkq0vtgc6oMIPb40Gv5XxvjXjOV8P9rEuA8exSa4c5qWzcU_1ubsCg==;
+acct0-1  | node3 used: 0 forwarded: 220 threshold: 16824
+acct0-1  | allowed send for 3
 node3-1  | 
-node3-1  | sending packet SjuKxASJ7z8=
-node2-1  | 
-node2-1  | received from 3: 8IqQQ2Ct3O58X44Oz8Ous3DDLeYdRikLjBzHnDsi2ncryGUWLJKAr3tGmjxlyI4HIpo7EMJTtxOQLSp49pC56D94GLoeu-06e5wEXr36lg5flqjIrw1Il3gPL3QIQSM4iaPi3ifYY9dbfKqTAxSRbflqD0NJnWCct8nsxbobNCLh1s4UEyi58vhypHbdZUB8IAKWjqJsCLox1bBGzpSTITys3Ogp8Y6J3KlUDGxXETQj2ylzNpxuQZy81ZpYXfbqwHL1S7fwUzy6M7V17Ud3zqbSFe3bVrHNyw8uSQmih4st4MAgIgRufDm3BYOftyicIKVKWOlenm1LjkZSf-ThvaV3vtjgRBRIRKeQrItRwwLMZja-BkB5_UR9vokVziH6ibPmyAwrWwkVwM6FfX-fp7vNrgyJUvD9
+node3-1  | metrics for xvyH2uD69kI= route length: 3 hops, payload size: 19 B, onion size: 604 B, onion/payload: 31.8
 node3-1  | 
-node3-1  | received from 2: receipt Ob_UniQXxEfDZ4Ilwzi-Dfce2h5kiMnADGTuolnKxEYkEzGUOIzVaTqxf8zGxV7xZZFJku_kFT2qlDAzulAPfW9o43IksmvyE3RMmASPpFIdj6ArglvbQiBM5QxKicNx2TmSeP403TrHP0tEZ5NUL-4IWpqQc3qyV39UaWBCz_QjN76NpddbXh0x384ShsdbQ1ufb2dkh67RkgX0PeMZ5q0=
-node6-1  | 
-node6-1  | received from 2: UChkHdPKjsH1YGZCZaFlBeZPPZzDUUWgv0TDCmId8koERfL9WK3_4jYwds0UM3AdjknGh9jBiMoCKLIw5hgSRXF1YKmPbVwIGV9jljP1YDd4w8Axz9lq0y81pwZHDwGbUzYMyOftd40KX7AwFYXzsZWYc-ctBMkRi1pr2oYVd5bTzyQEgct8ZJtIluMSV_cDiX9EsNCDOnEDA4juLibhWYkvmqHcQxyQ
-node6-1  | 
-node6-1  | packet reached destination: SjuKxASJ7z8= first message from node3
+node3-1  | sending packet xvyH2uD69kI=
 node2-1  | 
-node2-1  | received from 6: receipt 8D1nrXep9BlO-Y2IEA6WrcWeDOmHtVRXnzim8fOI5xbo6oi--818gYOKFMTdtMd73OuYJ-K3OcDHBYZLAmPzVWTMUB66uzqoum2oSMv2sddObfYjfYbIpwbZoZh4gR4KvDP6InfoVWCfCy7sA8x22dwVYY11-J2H7UL65A4aTFP_yBG8A-G12oNqYLvyMiq8kzBpOyl7SKO-5_HOgKfJYxQ=
+node2-1  | received from 3: wtJAYtolueHlUSZtF7TMn51z5zBFO7sgA4xbOYd4NRK6h_DK3j48TbtPmb79sFnZbOyE92zNY2W6xCpEEjbTj8PGL_wK6h9kUb7kvNGSfb5XvmzSiaOf0E6y6xbddFvEEdJTv1Vfnztl0g-cHcLbC8dIG03-U8_0IfNRv7bZ2TD6gC4Sm1HM_6fFqQUzWYLqkJUYWeHS5HwT8-e8N0JKTTErGD83wcSkXvRcrWtqVdgUmEV_kUeINAYhQrUiw1yJHgQUK5ivFL92drVwfV9Vi4GANrMrITfvO0VOHQWHuMFlh7l1kDEES7zYU0wCQWdECdVtt-_n7qKy-mIhySccTdwfLfJdM87zAzhmAUBKrRzFb72E064f_PlzzCj_KuX07NrW3tfUP_vgMt9aa4c1TTnL3w==
+node3-1  | 
+node3-1  | received from 2: receipt cN_KfmHwa8zi6AegecH4fDEBvhDieVQzKt0SwE5R6gsu-knNkJQ3m5RWoCdbj0xHO7LXvP0PCMM6njKRQqY3RZSpvEx80IAn1Om6ePpSeoKKTuaZXEy1vIpyemgUIvU5PtnbnZMYR2_I-UQIwgES6k3ITNazeTwgrJC5iGccPu2Iep9RHL-mRzt0w-USqcX9D2icdNg4hAhEatnSt7dduB0=
+node6-1  | 
+node6-1  | received from 2: GnAxY24RfUAzj9SNlGb34TZbUXl0rfhX0pRD87XjHQsLQmkixPwqq-J56IruRU_uCyasZ-NU6lZR0vhlwCYyDJgaUqWBhpPCH-a-2ZOs5gXrsRoKxNYcVsoXJ5tZVqV3C8TW39HC-SUQDYe89QySWOmKiwQNLzS1O80cwQEkpljI_r_hFqjDomkv7IgiGIV6V4j921Ny-wJr-oLgRX6TeYz6MA==
+node6-1  | 
+node6-1  | packet reached destination: xvyH2uD69kI= message1 from node3
+node2-1  | 
+node2-1  | received from 6: receipt f3FhwMJ9z5qCctRNLx6u75_TcRYAzsVMNmmBqDWtcwmUX7GonKXSLoaEHl22ngfKL2-mvGvmXnbNCD_bRT2-lT-NoInByo-UKtu6BWBEwA0Lnm-yTMUC-VUcv08LjpMwNTIaGucl3VRKpn5rNpvYRvmsTIbUZUpDz2mfxqH0U8_w5bT1VNWit7s7UDRAz9jCIHGUgyxORJz_uWJWYkOUK1k=
 acct2-1  | 
-acct2-1  | received from 2: proof nY89UEgA3-OKN7q-5oN3BDjIpRr-_u-xVofnVR2M0WvC4zkYaGzW0jYKnizUeyGg39GsIfei_Mtd720_oHcRdwdQJBjtmyf3q6oOA4_4dDIbW1dUMjhewtZxBmq3XjEFdi7YJ1SjDxgKBTRMquleKEMcO4u5hgGUoD9uTL6QOeTbjHhaE-mY_BjE30J_60L1yTI06XHfGswPNV1kFCixTeKuWfZRBS3rZlVONhl5MnUwqWbs03K3DSzuy1iUhA1jyxseTRIx67xKOfzfhAIYUWQ0yO0xbA6qV8zsweXGsp5--wWkO2USQW9bfSfCI_ILASsKZg27W2gH1XXDqxlKjHURfR1jkMrZiraiGRBkeTAp0ftrpH4suxHchoKatZV6v05piT5lSu37DtWMN2J7is6kIsgoHeLH5HHzdtD-3AgBvbkk9_CDrPI7zmHUfdzK1k52Y6Xr_QyZ7D96DDduvl2YOfEDm2AvcHjpdeS0rh0OA-QNE_59P758oOL0AVhB60-sUfg3woaSdILEXeDsIjWKUCGzfAVUcg==
+acct2-1  | received from 2: proof Q6aLnTo6Cim13lIUfq2dV4PbpQ-34ZV_tY_XBRnZcnqXQXMdyHLk9KDh4_YmvJ-6cZF_wJ1IHRzPlekQ5TDWI7SheSz0sp58r3QlD-GX71eTdFRitql2ulAn6W25esyjT_g4q2uuUN7ET9RKj4Nbdsk4xZoibgD_M1MwCW5nawEVelWOLVRoloznfIefevPKlq5KaHjZgfgPThnEXqLCdaCd2MxigUSy2fKUApJEcH4UTyuZ4QPa-mGRuFdfLJkY0aGz86T9r5EaN9vDR7OHsDEFUz5qCWifiQvj089v5x6xxuDagUFXTsEwDqkOevO6hW4yXbrR-OCgOaYl5my7s4v3wNuX9aMyKWxA-O78aqhu4pzegTNRX7wJwF-3PGj9TatFnUf0ubjDdMOezh5pOE4eu1ZbGPQXx-U6VxtJtdJ04v17IWyIjSYM9AbvjaZnit-VXZRhTZrHCiVvfNHh9xmStACJz0pvcMpjw4FDuGk8sP9P14S9y4Q9rHL_BhPpmE9Aqz_QT-ZJED1PwXgM0X1KvvcNRxApig==
 acct2-1  | 
 acct2-1  | succesfully decrypted proof
-acct2-1  | proof receipt  SjuKxASJ7z8= 6 2 224 2s7MO552NOY5o1B3cCPG_6Aax-Inp-jAV9DnQhF27U_R-fkebNfyTCF8LBgPJ2BGFiyMpptkBOMz24yPQdnjDA==;
+acct2-1  | proof receipt  xvyH2uD69kI= 6 2 220 1fSWD77RiazNFxtiyce2qXXIstVqc0dS4MOV3CS0ETLJ8eYggXHv7DwNmxb6tAfS6KanNZ3xt6g2dPi311x2Bg==;
+acct2-1  | node2 used: 16384 forwarded: 220 threshold: 16824
+acct2-1  | allowed send for 2
 node2-1  | 
-node2-1  | sending packet 3wDf7yyAy0Y=
-node5-1  | 
-node5-1  | received from 2: MwfMPklJpjmZDUDOWNWllBZB6iQxWMDcQQoir3EjdnCqkG9l4Wz9-XUNzGEsM29t2Q9wTBscJv1HhlHcDoPCIw3A0XKZx7PxOA3YD_IiUHHrQ4L2d-GWiuZkKOYLoVHQ9B3KnGILHZMOhlZtH9Y2Q6x49Ommvpx-oJ3queUPBi4U0Ibm0g9aPeVIeTqRN3e7cJdj3e4mXF_a3UFxzI8Q0ZCeP0l_J4JPFlN2IMfUbom5rIzeWOBbXN6b57mzFbgBrhi8phpfPUYjonAkEBRbKjA5pva_vb29Ur9eWNQHye9rxsSvQHzi5FZ7nRGlCtHrPvXjBjtsrUPRls8WiuXYaq3SYCr1wr8sPJ_usj9-IiLUc9-ONM_mOAxBlwwBuu-52zRmXU17gGDgcbig587CNDHoJ0Q-rpw7lu0Wh-Vl5jUhxmfe2aDUIpCO_uEd52BDepyHW2dJpB77tHG2l19rtQKcH1p2YTl_d-dvmMkdqC4iexwHM2MBSwKpe7EzuIWJ94sKbIeW0B2ywDcejscuuHF1DqFAwk_pFKphpLffVMKa88Cgs1ns1uvKvOboClBJYMnksOjbFS4OzPJSAZLubCrCLFIuClC8_EgAWCv1lqy2wKHFbVvtgAJdFOb1wq0j33VDXnK05LKqiE6ZL4Vp8KV18k1L2kL5swRqynw_pE8kj0MYpkbWpnP2GheWWujWeStu8bTJQBfw1R4u6d9S0RL3jfnYlkZ4IYGOr2kZaciGQGJDBxflm-6Hc5-U-vbaGQXhWdGFOcTZOIgH_S8k0nG4-Nq3c21uvfo=
+node2-1  | metrics for QiW6x2EBAwc= route length: 5 hops, payload size: 19 B, onion size: 988 B, onion/payload: 52.0
 node2-1  | 
-node2-1  | received from 5: receipt l-cEhRKWAACNamFlPIbKbj_j_Bl8XM9ivCPViTbuuzsFEBWe7l4ohAbTtMlOv7730PtkEg8r4BjLzipXNMlM09NZ_PP-aqHVPKDUynE0XfSqVWTqRVBuNYuytmeYJRRfSxNCbdUfEkKN-g4NPQDrUrqBFqPFQgrj1YzhiGGnYb0pcTaTP9w048ZRcWqbop9U3atfcL2gnJFeOVG75k6z86s=
-node4-1  | 
-node4-1  | received from 5: TSitWSyKn3HAXoKv80E16yPMZ0wov1b6d6zMT3Xba0aStaiTpwHA5wLjIPoKsOs3aNkaJT6gO78aq_YEA8DMRxVYfi9NUI0_1lvmiGChfXuWr1Q5PQdFJRjUXHb5ZMBS1mKFW37QJHbDMllEwayEZ5FzxlmsVZEDLdYDVD4FG44JLFXT8vnY6d4_kpyVFiJBIRZBoSWhO--2-Itc5elMKWsw8JEcoFqQRCSKZQmWoqZYApEiaUavEvOizm0QsVyDNBF4VE9or6F2afJZTiGVmgZuv3o1s7xfrSmCsqJwHEhdBg6hTQ6B_hq1sY0iF7BmvA-IhbSAlHBMVh1V_rNYotXbWhouJdPatr456ZDNWpQog4ZxxYhtjtY60CceXASVPB-64F56GZ7kF_-vdtMoXn2Sh76BuZGPX_hhzQPxCyLEPm2-X_UdCKG3OM8PLgBmyvJ5tez0iBAUyb_Z8dSgJuTRJ6V3Xle0IXTncR5Sr2teQ2wXbihLjpWLDwbYU772EOBbKTj8ZwoTCqjILBU0gWgqw_W5qoXDsb6TpGuhZUn3B-DrD9YrrC90UfPnFz-KyMjQcdkziUJBBIsYDbxkzq1f9bKtSemXpJQ=
+node2-1  | sending packet QiW6x2EBAwc=
 node5-1  | 
-node5-1  | received from 4: receipt tFAXAsmrvdbJFwSjyblS3lrfcPRjVBLJp1NjcxgUfF01k-BBNo0h0tmuKwjnejONpyrefdEfAzkZsHoCglX5hXKpZ38VOLXHR-5tY9_-CrQlc7CnZ-PjQtQKC-X1TJJyBTn5ntGgM0UhS6BzoCGufJHaeM-U72LMLfokF7F95fOQpvPaC-JcwA2qW5HwHUm1VeESdS2mHntYluyEgnZA01c=
-node3-1  | 
-node3-1  | received from 4: S4vO2cPb0_Iz-EiSFKS3-xaht8g3SVSKibwrFv9fIyOzLeezEB3UCCThZSUYAFT9oLAtIXG9xel1q5_7gWOdwW1fOPbnAuGqalnKAeJZokS0223NnvhiHGP_i6voOuCh1sEZjMu6Uw-vokG-fQrEGGWwu1737mH7z-NDWcOByzXZW7PHBSZ9uraBr_s1sEMuRfAl_ord7MMGuLO-hKctgJ6JPomgMu8GWApPvhQpcPWJRgU6BpTjn8jiwNm-ZZD-dLsFap_zjrSIhNzxH6FdEutY-rF0j3kbCEPqGF9z5ilEOFW_CvC8GNkdu3lQaXNx44zJZwVOt5UHdORYoXO6MB_XWs3gc8yzjY5ZYR4IGamxrX4wqUYZE8e1p2lQAUsgZWDDql8jvqrugmkkLkKasNiktdrMs9Rin-E=
+node5-1  | received from 2: ZLY6xP9IztcV1IMZGuy89IUjJ--gc6TjX7DwuYensHSuQlxz6e3Oq5P7VK48Pg6joPQXtxjUEazNeB_aLJYWtD1Dbi_ZFglSReCK460AukJQ2n34xwbV7oX-dJ-CWog7uajp98fGu-ZXB8YtPJMGpnaGw6f3USGXDdpIj2wdH4LSo9XazDsQoLMkpss-9LRlWE1TV2jGm41Ky6S3ct-N6uFIDR2B5Wq33lrKtYFPBleA0lEpa8tt2CmVkSL9v92MzoDJLi2z-EI1DZS3zEdYA1IweTzU4V-_Zbxy0V7SYA2qOdF6FaO9WndxBnqZK6ceh175BN6YfoddqTI1_BEtbg0GoyGXrxp8ModPgvBwarTy3yaRrX3uogFaOj5LibjqgQoJKbkKIJ3sTGtx9oeMKC28FWaeXksHRf6lZHBXzm5CeD7QwdOOIPIPM9pC6sf_w01LSLYg_oeIt2wWNriq9_sNpjxNW_INwsAXbi4DEGIY8-R3ndZhAxAQgvcgjYNGFKUJA0vpausnUmt8pTftlqq7d4LABDocxWBuAhWIDXWm8mqWRQywklKBUHuM2lzXbJFlkv8YFy6vWnfIyrcPcJFWZ--SkAtqGQEn4bPcUrfQ2g5SSbWAQXumoDvW2J9kMlFMPAURTOOKtb29-5hz_1y5rx7jfjdyYaczjKt8imB-xIo2mKOC3W_NfmuRoTTRBEzubXH-7r0_ebvzXcne_yrj10yeMU-gxFj60g-_S8kSqeY1j5GyUtYeBfVeLkNjp_w3BmI-GH-vY3ptkuxd80c25g==
+node2-1  | 
+node2-1  | received from 5: receipt bl4KeeiZBhBowghV04h49TXgR7B8uFTZXRAtdAWS5XJy7yL8JdETOOHCXtbEOpgROpwqbJLjjMFJTsar5nRWwUimnNm3XLJ-LWpMbmljmq2UqxbMwoYwlGFTI4qo5cxNsa-Ey_Q7nNOn-L95JJT4d0vTnY44KZL22fypAh-EgMaaYlmgqAUuCJYCWi39PZHzdLy5RfSrcG4IPM83lKxLN68=
 node4-1  | 
-node4-1  | received from 3: receipt MrmSaNwBUG3nTDe6WFg21EXPFBrFQ9D-hgJxT5rhymLfmhhwEUUfMfoYEcIO0bxIwLvXc4OdnJpdjXNFdjFTBFo-V8xgCW-BnZO04pNy2Stq3kGdpQtsSx-LmWy7PWAXef89C1gvWsGxh7ntZIfkepP70evAHH7lYagsGZckowuUuMHPBjOfkelXhJVE7GoC6bCSInJ4D_CBZcN7uCs-NVw=
-node1-1  | 
-node1-1  | received from 3: SzMnBv-47j1GUsh-dq6DtEViB7kL1uVnG7ElqkJ7jXMtegwOBq4ccoCUVGXhvVgWpuizgst5ndSDpNxjx3ryzUrW6X5L3Tnn0F9Wi1DhUKU4uV8lupucXu1dji61MIynPyFKnB19l5l392ZX14WGGCx7y0Om4lDtPXHKp04BNV2kt5acFnsBk7N1Ww8VdZ_OJ29aNhjzMkGa13jLCTBbaEMe4Pq-jjk87oY=
-node1-1  | 
-node1-1  | packet reached destination: 3wDf7yyAy0Y= another attempt from node2
+node4-1  | received from 5: mWDfJErzdRn_epsgLH000Evru8uIwP94C20LonDjuELM26ZW6kEGmeWqqy3ilHnZCsRl0-YH_J0TtQs0mUl-abmewf8bOhww-ZWPWkpQbx-k2bnqX2G_yHHlaGCNpYiOSWFmZCQX8JArawQbLgB0BDfgtsuq6BYaMCqGT-wKvZ3sV4ZYXVShyQPQA93SkQ8rNbexPaZ2nkARFqIvLSLdWtm64ZK9ja7c2Y_V6SFCEnnxBVXWwwDqSm5Ts7eeP3BQ6mJDSThX85T1xYpT_DpfSUdynz1bS_5houyU9zz3OwtDElnyxVup0UbxVIukq_9v7-PsLxg9WLcF1UylWWyLeAqu0v734ANWcciYygXRLNc2c_oa3NMEoPaM3RckS45ddO-Ga_7XWj24Iagl4V42-R4viVebbbZHltVL2gvTwjAd65qHQqyFujPASmcqFcYSvN6RFyxC_g_RS1cZoFuxGavRIi8IHgwQG-CgxiwDd_AvkYzQHrSy8W5IBFQwUk_3cqC4gX-9x8zCeHAy3qcmpx8CHDyib5pzlM0UZ_qTEkzu9X6M6ghMs0ozOtFUZOqg62Sexbf3sCZJJgKHyqsZrhNblg==
+node5-1  | 
+node5-1  | received from 4: receipt cCMnGuCtjtET61VK27wqiF1upThvSpgjdHQZxJhpmhxw7P9vIUr07zg2GPA6Ae0TbUkBx1LLzn3c0fIFt8sPOUVViMJ9PKcEgkl3D1bIjEl16de9JRCJGn0Z-lC-WwsMez055no2zxWAJtQraN-G6kqwbPQD62bQE8cP3AZVeKA0tz-4pTlJloozmdVqzIQewnUsBPWelP9KtsyycXSsgS4=
 node3-1  | 
-node3-1  | received from 1: receipt aaa1TSku-oF7WeFhwEhiSrKkiO8Dws5gHYpSyNPFhk8tCUERxRjiJg8tAzqEbkneV6ukfR_dt7ewDh_TNzB-OE7kEoCmurhXhyDGZHVJFBRqR0g2XhA2Tv9erMlq1F4V0sr4jJCn_XWFN6fzEqv84Or7WLBMxwogotJmOHdXh07-TC7qnys8q4Rgq21kqizoYERyfTpYqg0uLkQG3yP4_Wo=
+node3-1  | received from 4: bFaYfWdd0oecDW3qqzBsAnbj3y7dtscbccY0fDCqtAwhGFbm3ETxQnpjAU74FsJuAhEvrGURwAKDXty1Pcg2V1em3k3eK3PXR6kY1oHuc1OMjX6L5PR6v6mtq0I8hyxSzBS_6vC_rsc_96-65-vNT-wguPNjJW-v49zgBxsVxagQoJTbbylOPEUHpq9IRlivkoC5JSHWAynXk9IvpX1oFmEL3rbiK8dnWm647I-UMO4DVq3MVTHTmassQgz0FKJf2P3R708ApXpMF369InAAayJGJ3Qr0Drvn2sh-iB6QIieLn0wrRIpOJ1Tgv2q6JyP8tqEWxHWVGUkHVW8IFJvgG9tyAiA6KuO4AQ5NmMtM0pMnD5e_qLsp1z6V_s_diwpSbrF8ly1RSjSEgRp3YpwWSs1nA==
+node4-1  | 
+node4-1  | received from 3: receipt dhxZCqf0bbPTs6EkFBdLG72M5oHEn0TTctuCzjalYGbMO6y-kv6vn-T0ip03Z0b-Aku1gs8lmFpZcomAflUT-TlZwogxICIG49YnzAdJl4t1JpVVjLUTmMkSVEaK0XEZrEWNNm8qxGHV93YgeGqK6z8UZbRcKreLc5_xH_ZoUVEorhbC1iHUumr-3a5rP2RxtKmK395iBEKAlbA4iwg5n_Y=
+node1-1  | 
+node1-1  | received from 3: u87cArOTqhDmd9O-ZuV-hVs5PY2AroVXCi0FwTHJxXOxidAZ0TANOznc9D82VINMLUPZa1IzK_2kZU8L_jAgN4Ocep8FoBSyeoDRoxqmHSX_a9N3uVYmbtjPQtxrSUakE_KYxkmAziM35ZS1i2PJ9dHRnX1U5dU7AnU9LNZm2RwC5y7uYAdyGtkYTxT1nPuwTl55jK_nxdjGnYxaeBvwxqQZlQ==
+node1-1  | 
+node1-1  | packet reached destination: QiW6x2EBAwc= message4 from node2
+node3-1  | 
+node3-1  | received from 1: receipt xY91iSq6eckKgnvrYriaIS3lWD7tkFwphfoV4tmmzgJQ9Hg52kJWEoz0D99fKGOBF3wWghXkc1NV354aShG0qWa-NbakVxuNo8GBJLi3ctuQwuhp3S9fOANEa4iE3j93JRmLHjtW6mQm1NLP7SmE2ggmQrjUT2JGQGw-tTKRL0-FX9BiyHgN-TIdznoyb4OU9DCJ2iJUDcKoG0GEUs0gvI4=
