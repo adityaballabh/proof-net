@@ -1,3 +1,4 @@
+# custom_msg_id delay dest content
 2_first 3 1 message1 from node2
 2_second 8 0 message2 from node2
 2_third 13 1 third message from node2 without forwarding

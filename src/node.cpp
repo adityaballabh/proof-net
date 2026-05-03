@@ -6,14 +6,29 @@ struct Message {
     int dest, delay;
 };
 
-Message parseMessage(string message) {
+Message parseMessage(string message, int node_cnt) {
     stringstream ss_msg(message);
-    Message msg;
+    Message msg{};
     string content;
+    ss_msg >> ws;
+    if (ss_msg.eof() || ss_msg.peek() == '#')
+        return msg;
     ss_msg >> msg.id >> msg.delay >> msg.dest;
+    if (!ss_msg) {
+        cerr << "\nerror occurred while parsing " << message << ". ignoring message\n";
+        return msg;
+    }
+    if (msg.dest < 0 || msg.dest >= node_cnt) {
+        cerr << "\ninvalid dest: " << msg.dest << ". ignoring message\n";
+        return msg;
+    }
+    if (msg.delay < 0) {
+        cerr << "\ninvalid delay: " << msg.delay << ". ignoring message\n";
+        return msg;
+    }
     getline(ss_msg, content);
     if (content.empty())
-        throw runtime_error("no packet content found");
+        return msg;
     msg.content = content.substr(1);
     return msg;
 }
@@ -24,7 +39,9 @@ vector<pair<Message, Packet>> loadMessages(unordered_map<int, vector<int>> &adj,
     fs::path messages_path = fs::path(MESSAGES_DIR) / (INIT + TXT);
     ifstream in(messages_path);
     while (getline(in, line)) {
-        Message message = parseMessage(line);
+        Message message = parseMessage(line, adj.size());
+        if (message.content.empty())
+            continue;
         message.route = computeRoute(adj, node_id, message.dest);
         msg_id = generateId(PACKET_ID_LEN);
         stringstream ss_sched;
