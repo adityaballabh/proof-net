@@ -138,7 +138,9 @@ string getBase64Decoded(string encoded) {
     return bin;
 }
 
-bool isValidReceipt(Receipt receipt, PubKey pub_key, int node) {
+bool isValidReceipt(Receipt receipt, PubKey pub_key, int node, HostType host_type) {
+    if(host_type == HostType::Adversary)
+        return true;
     if (receipt.receiver != node || receipt.generator == node)
         return false;
     string payload = getReceiptPayload(receipt);
@@ -220,7 +222,7 @@ unordered_map<int, PubKey> getPubKeys(unordered_map<int, Node> &nw_config, map<i
 
 void loadPvtKey(unsigned char *pvt_signing, unsigned char *pvt_encryption, HostType host_type) {
     fs::path pvt_path = fs::path(KEYS_DIR) / PVT;
-    if (host_type == HostType::Node)
+    if (host_type != HostType::Acct)
         pvt_path /= PVT;
     else
         pvt_path /= ACCT_COMMON;
@@ -451,7 +453,7 @@ void processPacket(unordered_map<int, Node> &nw_config, unordered_map<int, PubKe
     close(sockfd);
 }
 
-bool canSend(Proof proof, unordered_map<int, PubKey> &pub_keys, string packet_id, int node) {
+bool canSend(Proof proof, unordered_map<int, PubKey> &pub_keys, string packet_id, int node, HostType host_type) {
     NodeState node_state = getNodeState(node);
     stringstream out;
     if (node_state.packet_ids.count(packet_id)) {
@@ -464,7 +466,7 @@ bool canSend(Proof proof, unordered_map<int, PubKey> &pub_keys, string packet_id
     node_state.packet_ids.insert(packet_id);
 
     for (Receipt r : proof.receipts) {
-        if (node_state.receipt_ids.count(r.packet_id) || !isValidReceipt(r, pub_keys[r.generator], node))
+        if (node_state.receipt_ids.count(r.packet_id) || !isValidReceipt(r, pub_keys[r.generator], node, host_type))
             continue;
         node_state.receipt_ids.insert(r.packet_id);
         node_state.forwarded += r.bytes;
@@ -511,7 +513,7 @@ bool isCorrectAcct(map<int, Node> &acct_config, int acct_id, int node_id) {
 }
 
 void handleProof(map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_keys, unsigned char *pvt_signing,
-                 unsigned char *pvt_encryption, string packet_str, int new_fd, int acct_id, int sender_id) {
+                 unsigned char *pvt_encryption, string packet_str, int new_fd, int acct_id, int sender_id, HostType host_type) {
     if (!isCorrectAcct(acct_config, acct_id, sender_id)) {
         string acct_resp = ACCT_RESP_PREFIX;
         setNAK(acct_resp, sender_id);
@@ -558,7 +560,7 @@ void handleProof(map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_ke
     }
 
     string acct_resp = ACCT_RESP_PREFIX;
-    if (canSend(proof, pub_keys, packet_id, sender_id)) {
+    if (canSend(proof, pub_keys, packet_id, sender_id, host_type)) {
         bool all_commitments_valid = true;
         for (string commitment : commitments) {
             string decoded_commitment = getBase64Decoded(commitment);
@@ -662,15 +664,15 @@ void processConnections(unordered_map<int, Node> &nw_config, map<int, Node> &acc
             cout << out.str();
 
             if (packet_str.substr(0, RECEIPT_PREFIX.size()) == RECEIPT_PREFIX) {
-                if (host_type == HostType::Node) {
+                if (host_type != HostType::Acct) {
                     string encrypted_payload = packet_str.substr(RECEIPT_PREFIX.size());
                     Layer layer = getOnionDecrypted(pub_keys[node_id], pvt_encryption, encrypted_payload, true);
                     Receipt receipt = parseReceipt(RECEIPT_PREFIX + layer.payload);
-                    if (isValidReceipt(receipt, pub_keys[receipt.generator], node_id))
+                    if (isValidReceipt(receipt, pub_keys[receipt.generator], node_id, host_type))
                         storeReceipt(receipt);
                 }
             } else if (packet_str.substr(0, PROOF_PREFIX.size()) == PROOF_PREFIX && host_type == HostType::Acct)
-                handleProof(acct_config, pub_keys, pvt_signing, pvt_encryption, packet_str, new_fd, node_id, prev_node);
+                handleProof(acct_config, pub_keys, pvt_signing, pvt_encryption, packet_str, new_fd, node_id, prev_node, host_type);
             else if (packet_str.substr(0, BOOTSTRAP_REQ_PREFIX.size()) == BOOTSTRAP_REQ_PREFIX &&
                      host_type == HostType::Acct)
                 handleBootstrapReq(nw_config, adj, new_fd);
@@ -841,12 +843,10 @@ void init(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config, unor
     srand(time(0));
     if (sodium_init() == -1)
         throw runtime_error("sodium_init failed");
-    if (argc != 2) {
-        string err_str = string("usage: ") + (host_type == HostType::Node ? "node" : "acct") + " <id>";
-        throw runtime_error("usage: node <id>");
-    }
+    if (argc != 2) 
+        throw runtime_error("usage: node_type <id>");
 
-    if (host_type == HostType::Node) {
+    if (host_type != HostType::Acct) {
         Node acct = getBootstrapNode(acct_config_path);
         acct_config[acct.id] = acct;
         fetchTopology(nw_config, adj, acct);
