@@ -115,13 +115,19 @@ void sendSelfIssuedReceipts(unordered_map<int, Node> &nw_config, map<int, Node> 
                             unordered_map<int, PubKey> &pub_keys, unordered_map<int, vector<int>> &adj,
                             unsigned char *pvt_signing, unsigned char *pvt_encryption, int node_id, int dest,
                             int rep_cnt, string mode) {
+    // use up initial credit
+    int init_cnt = INIT_ALLOWED / MAX_LEN;
+    for (int i = 0; i < init_cnt; i++)
+        sendAttackPacketIfApproved(nw_config, acct_config, pub_keys, adj, pvt_signing, pvt_encryption, node_id, dest,
+                                   {}, mode + "_honest", i);
+
     for (int i = 0; i < rep_cnt; i++)
         sendFakeReceipt(nw_config, pub_keys, pvt_signing, node_id, node_id, MAX_LEN, mode);
     sleep(DEFAULT_SLEEP_SEC);
 
     Proof proof = getProof();
     stringstream out;
-    out << "\n[" << mode << "] loaded " << proof.receipts.size() << " self-issued receipts\n";
+    out << "\n[" << mode << "] loaded " << proof.receipts.size() << " receipts (including " << rep_cnt << " self-issued)\n";
     cout << out.str();
     sendAttackPacketIfApproved(nw_config, acct_config, pub_keys, adj, pvt_signing, pvt_encryption, node_id, dest, proof,
                                mode);
@@ -161,7 +167,7 @@ int main(int argc, char **argv) {
     unordered_map<int, vector<int>> adj;
     unordered_map<int, PubKey> pub_keys;
     unsigned char pvt_signing[crypto_sign_ed25519_SECRETKEYBYTES], pvt_encryption[crypto_box_SECRETKEYBYTES];
-    HostType host_type = HostType::Node;
+    HostType host_type = HostType::Adversary;
     cout << unitbuf;
 
     try {
