@@ -30,7 +30,7 @@ ProofNet prevents these attacks. However, it is susceptible to colluding nodes e
 
 ## Sample Logs
 
-- Without adversarial nodes: [sample-logs/non_adversarial.log](sample-logs/non_adversarial.log)
+- Without adversarial nodes: [sample-logs/non_adversarial.log](sample-logs/non_adversarial.log), [sample-logs/non_adversarial_larger_payloads.log](sample-logs/non_adversarial_larger_payloads.log)
 - With adversarial nodes: [sample-logs/adversarial.log](sample-logs/adversarial.log)
 
 ## References

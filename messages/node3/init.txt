@@ -1,1 +1,2 @@
-3_first 18 6 first message from node3
+# custom_msg_id delay dest content  
+3_first 18 6 message1 from node3

@@ -7,6 +7,7 @@
 #include <deque>
 #include <filesystem>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <map>
 #include <netdb.h>
@@ -27,10 +28,10 @@
 using namespace std;
 namespace fs = std::filesystem;
 
-const int BACKLOG = 8, MAX_LEN = 1024, INIT_ALLOWED = MAX_LEN * 2, HOP_ID_LEN = 4, PACKET_ID_LEN = 8, SALT_LEN = 16,
+const int BACKLOG = 8, MAX_LEN = 8192, INIT_ALLOWED = MAX_LEN * 2, HOP_ID_LEN = 4, PACKET_ID_LEN = 8, SALT_LEN = 16,
           ACCT_COMMON_ID = -1, LEN_BYTES = 2, MAX_RANDOM_HOP_CNT = 3, MAX_RETRY_CNT = 5,
           PACKET_ID_B64_LEN = sodium_base64_encoded_len(PACKET_ID_LEN, sodium_base64_VARIANT_URLSAFE) - 1,
-          FORWARDING_MULT = 5, RETRY_SEC = 1, DEFAULT_SLEEP_SEC = 2, DEFAULT_REP_CNT = 4;
+          FORWARDING_MULT = 2, RETRY_SEC = 1, DEFAULT_SLEEP_SEC = 2, DEFAULT_REP_CNT = 4;
 
 const string RECEIPT_PREFIX = "receipt ", PROOF_PREFIX = "proof ", ACCT_RESP_PREFIX = "acct_resp ", ACK_STR = "ACK",
              NAK_STR = "NAK", ACCT_COMMON = "acct_common", INIT = "init", PREV_IDS = "prev_ids", KEYS_DIR = "keys",
@@ -59,7 +60,7 @@ struct PubKey {
     unsigned char signing[crypto_sign_ed25519_PUBLICKEYBYTES], encryption[crypto_box_PUBLICKEYBYTES];
 };
 
-enum class HostType { Node, Acct };
+enum class HostType { Node, Acct, Adversary };
 
 struct Packet {
     string payload;
@@ -73,7 +74,7 @@ struct Proof {
 struct NodeState {
     bool allowed;
     int forwarded, used;
-    unordered_set<string> receipt_ids;
+    unordered_set<string> receipt_ids, packet_ids;
 };
 
 struct Layer {
@@ -95,7 +96,8 @@ Layer getOnionDecrypted(PubKey &node_pub, unsigned char *pvt_encryption, string 
 string getHash(string salt, int hop);
 void signReceipt(Receipt &receipt, unsigned char *pvt_key);
 void processPacket(unordered_map<int, Node> &nw_config, unordered_map<int, PubKey> &pub_keys, Packet packet,
-                   unsigned char *pvt_signing, unsigned char *pvt_encryption, int node_id, int prev_node);
+                   unsigned char *pvt_signing, unsigned char *pvt_encryption, int node_id, int prev_node,
+                   HostType host_type);
 void processConnections(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config,
                         unordered_map<int, PubKey> &pub_keys, unordered_map<int, vector<int>> &edges,
                         unsigned char *pvt_signing, unsigned char *pvt_encryption, int sockfd, int node_id,

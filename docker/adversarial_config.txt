@@ -2,4 +2,4 @@
 # modes: skip_verify, selfish_send, self_receipts, replay
 
 1 skip_verify 3
-4 replay 4 2
+4 replay 2 1

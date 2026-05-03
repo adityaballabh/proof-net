@@ -6,14 +6,29 @@ struct Message {
     int dest, delay;
 };
 
-Message parseMessage(string message) {
+Message parseMessage(string message, int node_cnt) {
     stringstream ss_msg(message);
-    Message msg;
+    Message msg{};
     string content;
+    ss_msg >> ws;
+    if (ss_msg.eof() || ss_msg.peek() == '#')
+        return msg;
     ss_msg >> msg.id >> msg.delay >> msg.dest;
+    if (!ss_msg) {
+        cerr << "\nerror occurred while parsing " << message << ". ignoring message\n";
+        return msg;
+    }
+    if (msg.dest < 0 || msg.dest >= node_cnt) {
+        cerr << "\ninvalid dest: " << msg.dest << ". ignoring message\n";
+        return msg;
+    }
+    if (msg.delay < 0) {
+        cerr << "\ninvalid delay: " << msg.delay << ". ignoring message\n";
+        return msg;
+    }
     getline(ss_msg, content);
     if (content.empty())
-        throw runtime_error("no packet content found");
+        return msg;
     msg.content = content.substr(1);
     return msg;
 }
@@ -24,7 +39,9 @@ vector<pair<Message, Packet>> loadMessages(unordered_map<int, vector<int>> &adj,
     fs::path messages_path = fs::path(MESSAGES_DIR) / (INIT + TXT);
     ifstream in(messages_path);
     while (getline(in, line)) {
-        Message message = parseMessage(line);
+        Message message = parseMessage(line, adj.size());
+        if (message.content.empty())
+            continue;
         message.route = computeRoute(adj, node_id, message.dest);
         msg_id = generateId(PACKET_ID_LEN);
         stringstream ss_sched;
@@ -57,14 +74,25 @@ vector<pair<Message, Packet>> loadMessages(unordered_map<int, vector<int>> &adj,
 
 void validateAndSendPacket(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config,
                            unordered_map<int, PubKey> &pub_keys, Proof proof, Message message, Packet packet,
-                           unsigned char *pvt_signing, unsigned char *pvt_encryption, int node_id) {
+                           unsigned char *pvt_signing, unsigned char *pvt_encryption, int node_id, HostType host_type) {
     stringstream out;
     if (canSendPacket(acct_config, pub_keys, proof, packet, pvt_encryption, message.id, node_id)) {
         packet.payload =
             getOnionEncrypted(pub_keys, message.route, packet.salts, packet.signatures, message.id, message.content);
+
+        int payload_len = message.content.size(), route_len = message.route.size(), onion_len = packet.payload.size();
+        if (!payload_len)
+            return;
+        double ratio = (double)onion_len / payload_len;
+
+        stringstream ss_metrics;
+        ss_metrics << "\nmetrics for " << message.id << " route length: " << route_len
+                   << " hops, payload size: " << payload_len << " B, onion size: " << onion_len
+                   << " B, onion/payload: " << fixed << setprecision(1) << ratio << '\n';
+        cout << ss_metrics.str();
         out << "\nsending packet " << message.id << '\n';
         cout << out.str();
-        processPacket(nw_config, pub_keys, packet, pvt_signing, pvt_encryption, node_id, -1);
+        processPacket(nw_config, pub_keys, packet, pvt_signing, pvt_encryption, node_id, -1, host_type);
     } else {
         out << "\nsend was denied for packet " << message.id << '\n';
         cout << out.str();
@@ -99,7 +127,7 @@ int main(int argc, char **argv) {
                 sleep(delay);
                 Proof proof = getProof();
                 validateAndSendPacket(nw_config, acct_config, pub_keys, proof, message, packet, pvt_signing,
-                                      pvt_encryption, node_id);
+                                      pvt_encryption, node_id, host_type);
             }
             exit(0);
         }

@@ -1,4 +1,5 @@
-2_first 3 1 first message from node2
-2_second 8 0 this is another message from two
+# custom_msg_id delay dest content
+2_first 3 1 message1 from node2
+2_second 8 0 message2 from node2
 2_third 13 1 third message from node2 without forwarding
-2_fourth 24 1 another attempt from node2
+2_fourth 24 1 message4 from node2
