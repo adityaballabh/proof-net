@@ -60,7 +60,7 @@ struct PubKey {
     unsigned char signing[crypto_sign_ed25519_PUBLICKEYBYTES], encryption[crypto_box_PUBLICKEYBYTES];
 };
 
-enum class HostType { Node, Acct };
+enum class HostType { Node, Acct, Adversary };
 
 struct Packet {
     string payload;
@@ -74,7 +74,7 @@ struct Proof {
 struct NodeState {
     bool allowed;
     int forwarded, used;
-    unordered_set<string> receipt_ids;
+    unordered_set<string> receipt_ids, packet_ids;
 };
 
 struct Layer {
@@ -96,7 +96,8 @@ Layer getOnionDecrypted(PubKey &node_pub, unsigned char *pvt_encryption, string 
 string getHash(string salt, int hop);
 void signReceipt(Receipt &receipt, unsigned char *pvt_key);
 void processPacket(unordered_map<int, Node> &nw_config, unordered_map<int, PubKey> &pub_keys, Packet packet,
-                   unsigned char *pvt_signing, unsigned char *pvt_encryption, int node_id, int prev_node);
+                   unsigned char *pvt_signing, unsigned char *pvt_encryption, int node_id, int prev_node,
+                   HostType host_type);
 void processConnections(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config,
                         unordered_map<int, PubKey> &pub_keys, unordered_map<int, vector<int>> &edges,
                         unsigned char *pvt_signing, unsigned char *pvt_encryption, int sockfd, int node_id,

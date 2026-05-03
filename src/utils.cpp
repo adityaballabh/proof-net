@@ -348,9 +348,19 @@ NodeState getNodeState(int node) {
 
     NodeState node_state{};
     in >> node_state.allowed >> node_state.forwarded >> node_state.used;
+    int cnt = 0;
+    in >> cnt;
     string id;
-    while (in >> id)
+    while (cnt--) {
+        in >> id;
         node_state.receipt_ids.insert(id);
+    }
+    cnt = 0;
+    in >> cnt;
+    while (cnt--) {
+        in >> id;
+        node_state.packet_ids.insert(id);
+    }
     return node_state;
 }
 
@@ -358,7 +368,11 @@ void writeNodeState(NodeState node_state, int node) {
     fs::path node_state_path = fs::path("state") / (to_string(node) + TXT);
     ofstream out(node_state_path);
     out << node_state.allowed << ' ' << node_state.forwarded << ' ' << node_state.used << ' ';
+    out << node_state.receipt_ids.size() << ' ';
     for (string id : node_state.receipt_ids)
+        out << id << ' ';
+    out << node_state.packet_ids.size() << ' ';
+    for (string id : node_state.packet_ids)
         out << id << ' ';
 }
 
@@ -369,7 +383,8 @@ string getHash(string salt, int hop) {
 }
 
 void processPacket(unordered_map<int, Node> &nw_config, unordered_map<int, PubKey> &pub_keys, Packet packet,
-                   unsigned char *pvt_signing, unsigned char *pvt_encryption, int node_id, int prev_node) {
+                   unsigned char *pvt_signing, unsigned char *pvt_encryption, int node_id, int prev_node,
+                   HostType host_type) {
     int payload_size = packet.payload.size();
     Layer layer = getOnionDecrypted(pub_keys[node_id], pvt_encryption, packet.payload, false);
 
@@ -386,7 +401,7 @@ void processPacket(unordered_map<int, Node> &nw_config, unordered_map<int, PubKe
 
     while (prev_pkts_in >> prev_pkt)
         prev_pkts.insert(prev_pkt);
-    if (prev_pkts.count(packet_id)) {
+    if (host_type != HostType::Adversary && prev_pkts.count(packet_id)) {
         stringstream out;
         out << "\nduplicate packet id: " << packet_id << ". dropping packet\n";
         cout << out.str();
@@ -398,7 +413,7 @@ void processPacket(unordered_map<int, Node> &nw_config, unordered_map<int, PubKe
     bool is_valid = !crypto_sign_verify_detached((unsigned char *)layer.signature.data(), (unsigned char *)msg.data(),
                                                  msg.size(), acct_pub_key.signing);
 
-    if (!is_valid) {
+    if (host_type != HostType::Adversary && !is_valid) {
         stringstream out;
         out << "\nsignature verification failed for packet " << packet_id << ". dropping packet\n";
         cout << out.str();
@@ -438,6 +453,16 @@ void processPacket(unordered_map<int, Node> &nw_config, unordered_map<int, PubKe
 
 bool canSend(Proof proof, unordered_map<int, PubKey> &pub_keys, string packet_id, int node) {
     NodeState node_state = getNodeState(node);
+    stringstream out;
+    if (node_state.packet_ids.count(packet_id)) {
+        out << "\nduplicate packet id: " << packet_id << ". dropping packet\n";
+        cout << out.str();
+        node_state.allowed = false;
+        writeNodeState(node_state, node);
+        return false;
+    }
+    node_state.packet_ids.insert(packet_id);
+
     for (Receipt r : proof.receipts) {
         if (node_state.receipt_ids.count(r.packet_id) || !isValidReceipt(r, pub_keys[r.generator], node))
             continue;
@@ -448,7 +473,6 @@ bool canSend(Proof proof, unordered_map<int, PubKey> &pub_keys, string packet_id
     node_state.receipt_ids.insert(packet_id);
 
     int used = node_state.used, thresh = node_state.forwarded * FORWARDING_MULT + INIT_ALLOWED;
-    stringstream out;
     out << "\nnode" << node << " used: " << used << " forwarded: " << node_state.forwarded << " threshold: " << thresh;
     cout << out.str();
     if (used < thresh) {
@@ -654,7 +678,7 @@ void processConnections(unordered_map<int, Node> &nw_config, map<int, Node> &acc
                 int prev_node = getNodeID(nw_config, acct_config, their_addr);
                 Packet packet;
                 packet.payload = packet_str;
-                processPacket(nw_config, pub_keys, packet, pvt_signing, pvt_encryption, node_id, prev_node);
+                processPacket(nw_config, pub_keys, packet, pvt_signing, pvt_encryption, node_id, prev_node, host_type);
             }
             close(new_fd);
             exit(0);

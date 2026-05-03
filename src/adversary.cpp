@@ -42,7 +42,7 @@ void sendAttackPacket(unordered_map<int, Node> &nw_config, unordered_map<int, Pu
     out << "\n[" << mode << "] sending packet " << message.packet_id << '\n';
     cout << out.str();
 
-    processPacket(nw_config, pub_keys, packet, pvt_signing, pvt_encryption, node_id, -1);
+    processPacket(nw_config, pub_keys, packet, pvt_signing, pvt_encryption, node_id, -1, HostType::Adversary);
     sleep(DEFAULT_SLEEP_SEC);
 }
 

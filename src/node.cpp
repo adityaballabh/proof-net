@@ -74,7 +74,7 @@ vector<pair<Message, Packet>> loadMessages(unordered_map<int, vector<int>> &adj,
 
 void validateAndSendPacket(unordered_map<int, Node> &nw_config, map<int, Node> &acct_config,
                            unordered_map<int, PubKey> &pub_keys, Proof proof, Message message, Packet packet,
-                           unsigned char *pvt_signing, unsigned char *pvt_encryption, int node_id) {
+                           unsigned char *pvt_signing, unsigned char *pvt_encryption, int node_id, HostType host_type) {
     stringstream out;
     if (canSendPacket(acct_config, pub_keys, proof, packet, pvt_encryption, message.id, node_id)) {
         packet.payload =
@@ -92,7 +92,7 @@ void validateAndSendPacket(unordered_map<int, Node> &nw_config, map<int, Node> &
         cout << ss_metrics.str();
         out << "\nsending packet " << message.id << '\n';
         cout << out.str();
-        processPacket(nw_config, pub_keys, packet, pvt_signing, pvt_encryption, node_id, -1);
+        processPacket(nw_config, pub_keys, packet, pvt_signing, pvt_encryption, node_id, -1, host_type);
     } else {
         out << "\nsend was denied for packet " << message.id << '\n';
         cout << out.str();
@@ -127,7 +127,7 @@ int main(int argc, char **argv) {
                 sleep(delay);
                 Proof proof = getProof();
                 validateAndSendPacket(nw_config, acct_config, pub_keys, proof, message, packet, pvt_signing,
-                                      pvt_encryption, node_id);
+                                      pvt_encryption, node_id, host_type);
             }
             exit(0);
         }
