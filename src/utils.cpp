@@ -447,12 +447,11 @@ bool canSend(Proof proof, unordered_map<int, PubKey> &pub_keys, string packet_id
     // skip future receipts for this packet at origin
     node_state.receipt_ids.insert(packet_id);
 
-    int max_used = node_state.used + MAX_LEN, thresh = node_state.forwarded * FORWARDING_MULT + INIT_ALLOWED;
+    int used = node_state.used, thresh = node_state.forwarded * FORWARDING_MULT + INIT_ALLOWED;
     stringstream out;
-    out << "\nnode" << node << " used: " << max_used << " forwarded: " << node_state.forwarded
-        << " threshold: " << thresh;
+    out << "\nnode" << node << " used: " << used << " forwarded: " << node_state.forwarded << " threshold: " << thresh;
     cout << out.str();
-    if (max_used <= thresh) {
+    if (used < thresh) {
         node_state.used += MAX_LEN;
         node_state.allowed = true;
     } else
@@ -536,18 +535,28 @@ void handleProof(map<int, Node> &acct_config, unordered_map<int, PubKey> &pub_ke
 
     string acct_resp = ACCT_RESP_PREFIX;
     if (canSend(proof, pub_keys, packet_id, sender_id)) {
+        bool all_commitments_valid = true;
         for (string commitment : commitments) {
             string decoded_commitment = getBase64Decoded(commitment);
 
-            if (decoded_commitment.empty())
+            if (decoded_commitment.empty()) {
                 setNAK(acct_resp, sender_id);
-            else {
+                all_commitments_valid = false;
+                break;
+            } else {
                 string msg = packet_id + decoded_commitment;
                 unsigned char signature[crypto_sign_BYTES];
                 crypto_sign_detached(signature, NULL, (unsigned char *)msg.data(), msg.size(), pvt_signing);
                 acct_resp += ' ' + getBase64Encoded(signature, crypto_sign_BYTES);
             }
         }
+
+        if (all_commitments_valid) {
+            stringstream out;
+            out << "\nallowed send for " << sender_id << '\n';
+            cout << out.str();
+        }
+
     } else
         setNAK(acct_resp, sender_id);
     string encrypted_resp = getOnionEncrypted(pub_keys, {sender_id}, {}, {}, "", acct_resp);

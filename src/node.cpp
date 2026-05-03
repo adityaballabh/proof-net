@@ -62,6 +62,17 @@ void validateAndSendPacket(unordered_map<int, Node> &nw_config, map<int, Node> &
     if (canSendPacket(acct_config, pub_keys, proof, packet, pvt_encryption, message.id, node_id)) {
         packet.payload =
             getOnionEncrypted(pub_keys, message.route, packet.salts, packet.signatures, message.id, message.content);
+
+        int payload_len = message.content.size(), route_len = message.route.size(), onion_len = packet.payload.size();
+        if (!payload_len)
+            return;
+        double ratio = (double)onion_len / payload_len;
+
+        stringstream ss_metrics;
+        ss_metrics << "\nmetrics for " << message.id << " route length: " << route_len
+                   << " hops, payload size: " << payload_len << " B, onion size: " << onion_len
+                   << " B, onion/payload: " << fixed << setprecision(1) << ratio << '\n';
+        cout << ss_metrics.str();
         out << "\nsending packet " << message.id << '\n';
         cout << out.str();
         processPacket(nw_config, pub_keys, packet, pvt_signing, pvt_encryption, node_id, -1);
